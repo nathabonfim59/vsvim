@@ -243,9 +243,21 @@ local function show_changes_popup(change_lines, on_apply, on_discard)
 		zindex = 150,
 	})
 
+	-- Ensure the modal is focused and on screen even when opened from a keymap.
+	vim.api.nvim_set_current_win(win_id)
+	vim.cmd("redraw")
+
 	local function close_popup()
 		if vim.api.nvim_win_is_valid(win_id) then
 			vim.api.nvim_win_close(win_id, true)
+		end
+		vim.cmd("redraw")
+	end
+
+	local function safe_call(fn, label)
+		local ok, err = pcall(fn)
+		if not ok then
+			vim.notify("sidebar: " .. label .. " failed: " .. tostring(err), vim.log.levels.ERROR)
 		end
 	end
 
@@ -253,17 +265,17 @@ local function show_changes_popup(change_lines, on_apply, on_discard)
 
 	vim.keymap.set("n", "y", function()
 		close_popup()
-		on_apply()
+		safe_call(on_apply, "apply changes")
 	end, vim.tbl_extend("force", opts, { desc = "Apply changes and close filepicker" }))
 
 	vim.keymap.set("n", "<CR>", function()
 		close_popup()
-		on_apply()
+		safe_call(on_apply, "apply changes")
 	end, vim.tbl_extend("force", opts, { desc = "Apply changes and close filepicker" }))
 
 	vim.keymap.set("n", "n", function()
 		close_popup()
-		on_discard()
+		safe_call(on_discard, "discard changes")
 	end, vim.tbl_extend("force", opts, { desc = "Discard changes and close filepicker" }))
 
 	vim.keymap.set("n", "q", close_popup, vim.tbl_extend("force", opts, { desc = "Cancel and keep filepicker open" }))
