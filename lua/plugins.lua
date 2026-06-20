@@ -8,12 +8,23 @@
 --     not start anything until a module's setup() runs.
 --     https://github.com/nvim-mini/mini.nvim
 --   - fff.nvim (fuzzy finder): https://github.com/dmtrKovalenko/fff.nvim
+--   - vscode.nvim (colorscheme): VS Code Dark+/Light+ theme.
+--     https://github.com/Mofiqul/vscode.nvim
 vim.pack.add({
 	{ src = "https://github.com/nvim-mini/mini.nvim" },
 	{
 		src = "https://github.com/dmtrKovalenko/fff.nvim",
 	},
+	{ src = "https://github.com/Mofiqul/vscode.nvim" },
 })
+
+-- Default to dark mode and apply the vscode.nvim colorscheme on startup.
+-- `background` must be set before the colorscheme loads so vscode.nvim picks
+-- up its Dark+ variant. `pcall` swallows the not-yet-installed error on a
+-- fresh checkout; vim.pack installs vscode.nvim on first launch and the
+-- colorscheme activates automatically on the next startup.
+vim.o.background = "dark"
+pcall(vim.cmd.colorscheme, "vscode")
 
 -- VS Code-style tabline (listed buffers as tabs, colored icons, modified
 -- dot / close glyph, click-to-switch). Pure logic in lua/tabline.lua.

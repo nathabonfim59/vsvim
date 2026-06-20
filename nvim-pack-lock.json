@@ -7,6 +7,10 @@
     "mini.nvim": {
       "rev": "ecb05c524a99490c95a8862eb5cb09b1e629ed42",
       "src": "https://github.com/nvim-mini/mini.nvim"
+    },
+    "vscode.nvim": {
+      "rev": "aa1102a7e15195c9cca22730b09224a7f7745ba8",
+      "src": "https://github.com/Mofiqul/vscode.nvim"
     }
   }
 }
