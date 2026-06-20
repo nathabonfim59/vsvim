@@ -11,21 +11,20 @@
 --   - One solid bar spanning the full width, not segmented "bubbles".
 --     VS Code's status bar has no separators between sections; everything
 --     sits on the same blue background separated only by spacing.
---   - Left side: git branch (with  icon) + dirty/sync indicator.
---   - Right side: errors/warnings counts (with ⚠/✕ icons), cursor position
---     "Ln %l, Col %c", indentation (Spaces:N / Tabs), encoding, EOL mode,
---     and the language mode (filetype).
+--   - Left side: git branch (icon resolved from MiniIcons) + dirty/sync indicator.
+--   - Right side: errors/warnings counts (icons resolved from diagnostic signs),
+--     cursor position "Ln %l, Col %c", indentation (Spaces:N / Tabs), encoding,
+--     EOL mode, and the language mode (filetype).
 --   - White-on-blue text. The exact blue is VS Code's status-bar blue, which
 --     the vscode.nvim palette exposes as `vscDarkBlue` (#223E55 in dark,
 --     #007ACC in light — the latter being *literally* VS Code's value).
 --   - Inactive windows get a dimmed variant, mirroring VS Code's unfocused
 --     status bar.
 --
--- Highlighting is derived from the active colorscheme rather than
--- hard-coded: `set_highlights()` resolves colors from the live groups that
--- vscode.nvim populates (StatusLine / TabLine* / Diagnostic* / GitSigns*)
--- with hex values appearing only as last-resort fallbacks — the same
--- approach used in lua/tabline.lua for the tab bar.
+-- Highlighting is derived from the active colorscheme rather than hard-coded:
+-- `set_highlights()` resolves colors from the live groups that vscode.nvim
+-- populates (StatusLine / StatusLineNC / vsc*), falling back to the standard
+-- StatusLine groups when the theme does not provide VS Code-specific values.
 
 local M = {}
 
@@ -35,15 +34,11 @@ local function resolve(group)
 	return vim.api.nvim_get_hl(0, { name = group, link = false }) or {}
 end
 
--- Icon glyphs used in the bar. All resolved at setup() time from live sources
--- rather than hardcoded, so they track the user's icon/font configuration:
---   branch → MiniIcons.get("filetype", "git")
---   error/warn → vim.diagnostic.config().signs.text (Neovim's own sign config)
-M.GLYPHS = {
-	branch = "", -- fallback; overwritten by setup() via MiniIcons.get("filetype","git")
-	error  = "✕",  -- fallback; overwritten by setup() from diagnostic signs
-	warn   = "⚠",  -- fallback; overwritten by setup() from diagnostic signs
-}
+-- Icon glyphs used in the bar. Resolved at setup() time from live sources
+-- (MiniIcons and vim.diagnostic.config().signs.text) so they track the user's
+-- icon/font configuration. No hardcoded fallbacks: if a source is unavailable,
+-- the corresponding section omits the glyph.
+M.GLYPHS = {}
 
 -- Sections ----------------------------------------------------------------
 --
@@ -53,15 +48,21 @@ M.GLYPHS = {
 -- (truncation, icon resolution, etc.) and only override the VS Code-specific
 -- bits (position format, indentation, EOL).
 
--- Git: ` <branch>` (plus the mini.git/gitsigns dirty summary if present).
+-- Git branch (plus the mini.git/gitsigns dirty summary if present).
 -- Empty when not in a repo, exactly like VS Code which hides the branch
 -- indicator outside a workspace.
 function M.section_git()
 	local MiniStatusline = _G.MiniStatusline
 	if not MiniStatusline then return "" end
 	-- Forward to mini.statusline so it honours truncation + the configured
-	-- icon, then swap in VS Code's branch glyph.
-	local s = MiniStatusline.section_git({ trunc_width = 80, icon = M.GLYPHS.branch .. " " })
+	-- icon, then swap in VS Code's branch glyph when available.
+	local icon = M.GLYPHS.branch
+	if icon and icon ~= "" then
+		icon = icon .. " "
+	else
+		icon = nil
+	end
+	local s = MiniStatusline.section_git({ trunc_width = 80, icon = icon })
 	return s
 end
 
@@ -74,9 +75,10 @@ function M.section_diff()
 	return MiniStatusline.section_diff({ trunc_width = 100 })
 end
 
--- Errors / warnings with VS Code's ✕/⚠ glyphs. mini.statusline's default
--- uses single letters (E/W); we rebuild the counts with the real icons so
--- the bar matches VS Code's right-hand problem tally.
+-- Errors / warnings with glyphs resolved from `vim.diagnostic.config().signs.text`.
+-- mini.statusline's default uses single letters (E/W); we rebuild the counts
+-- with the configured sign icons so the bar matches VS Code's right-hand
+-- problem tally.
 function M.section_diagnostics()
 	local MiniStatusline = _G.MiniStatusline
 	if not MiniStatusline then return "" end
@@ -90,7 +92,9 @@ function M.section_diagnostics()
 	local warns = counts[sev.WARN] or 0
 	if errs == 0 and warns == 0 then return "" end
 
-	return string.format("%s %d  %s %d", M.GLYPHS.error, errs, M.GLYPHS.warn, warns)
+	local err_icon = M.GLYPHS.error or ""
+	local warn_icon = M.GLYPHS.warn or ""
+	return string.format("%s %d  %s %d", err_icon, errs, warn_icon, warns)
 end
 
 -- Cursor position in VS Code's exact format: `Ln 12, Col 34`.
@@ -192,29 +196,43 @@ function M.set_highlights()
 
 	-- Honour an explicit VsvimStatusBar override first (escape hatch).
 	local custom = resolve("VsvimStatusBar")
-	if custom.bg then
-		hl(0, "VsvimStatusline", { default = true, bg = custom.bg, fg = custom.fg or 0xD4D4D4 })
-		hl(0, "VsvimStatuslineInactive", { default = true, bg = custom.bg, fg = custom.fg or 0x636369 })
+	if custom.bg and custom.fg then
+		hl(0, "VsvimStatusline", { default = true, bg = custom.bg, fg = custom.fg })
+		hl(0, "VsvimStatuslineInactive", { default = true, bg = custom.bg, fg = custom.fg })
 		return
 	end
 
-	-- Pull the full vscode.nvim palette so every color tracks the theme.
+	-- Pull colors from the live theme. Prefer vscode.nvim's palette when
+	-- available; otherwise derive from the standard StatusLine groups so there
+	-- are no hardcoded hex fallbacks.
 	local ok, vsc_colors = pcall(require, "vscode.colors")
 	local c = ok and vsc_colors.get_colors() or {}
 
-	-- Active bar: vscSelection is the selection-highlight blue — present in
-	-- both dark (#264F78) and light (#ADD6FF) palettes and noticeably dimmer
-	-- than the raw #007ACC. Use vscFront for text so it matches the editor fg.
-	local bar_bg = c.vscSelection and tonumber(c.vscSelection:sub(2), 16) or 0x264F78
-	local bar_fg = c.vscFront    and tonumber(c.vscFront:sub(2),    16) or 0xD4D4D4
+	local function vsc_hex(name)
+		local val = c[name]
+		if type(val) == "string" and val:match("^#%x%x%x%x%x%x$") then
+			return tonumber(val:sub(2), 16)
+		end
+		return nil
+	end
 
-	-- Inactive bar: vscLeftDark is the sidebar panel background — dark and
-	-- neutral, making unfocused windows clearly recede. vscLeftLight for text.
-	local inactive_bg = c.vscLeftDark  and tonumber(c.vscLeftDark:sub(2),  16) or 0x252526
-	local inactive_fg = c.vscLeftLight and tonumber(c.vscLeftLight:sub(2), 16) or 0x636369
+	-- Active bar: vscSelection is the selection-highlight blue; vscFront is the
+	-- editor foreground. Fall back to the colorscheme's StatusLine group.
+	local status = resolve("StatusLine")
+	local bar_bg = vsc_hex("vscSelection") or status.bg
+	local bar_fg = vsc_hex("vscFront") or status.fg
 
-	hl(0, "VsvimStatusline",         { bg = bar_bg,      fg = bar_fg })
-	hl(0, "VsvimStatuslineInactive", { bg = inactive_bg, fg = inactive_fg })
+	-- Inactive bar: derive from StatusLineNC when vscode.nvim is absent.
+	local status_nc = resolve("StatusLineNC")
+	local inactive_bg = vsc_hex("vscLeftDark") or status_nc.bg or bar_bg
+	local inactive_fg = vsc_hex("vscLeftLight") or status_nc.fg or bar_fg
+
+	if bar_bg and bar_fg then
+		hl(0, "VsvimStatusline", { bg = bar_bg, fg = bar_fg })
+	end
+	if inactive_bg and inactive_fg then
+		hl(0, "VsvimStatuslineInactive", { bg = inactive_bg, fg = inactive_fg })
+	end
 end
 
 -- Apply VS Code-style statusline.
@@ -238,8 +256,8 @@ function M.setup(opts)
 	local sev = vim.diagnostic.severity
 	local dsigns = (vim.diagnostic.config() or {}).signs
 	if type(dsigns) == "table" and type(dsigns.text) == "table" then
-		M.GLYPHS.error = dsigns.text[sev.ERROR] or M.GLYPHS.error
-		M.GLYPHS.warn  = dsigns.text[sev.WARN]  or M.GLYPHS.warn
+		M.GLYPHS.error = dsigns.text[sev.ERROR]
+		M.GLYPHS.warn  = dsigns.text[sev.WARN]
 	end
 
 	mini_statusline.setup(vim.tbl_deep_extend("force", {

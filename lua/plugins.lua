@@ -28,7 +28,14 @@ vim.o.background = "dark"
 pcall(vim.cmd.colorscheme, "vscode")
 
 -- mini.icons: colored filetype icons used by mini.tabline and mini.statusline.
-require("mini.icons").setup()
+-- Also registers custom "filetype" entries for the tabline's modified/close
+-- indicators so they can be overridden through the standard MiniIcons config.
+require("mini.icons").setup({
+	filetype = {
+		["vsvim-modified"] = { glyph = "●", hl = "MiniIconsRed" },
+		["vsvim-close"] = { glyph = "×", hl = "MiniIconsGrey" },
+	},
+})
 
 -- mini.git: provides git branch/status info consumed by mini.statusline's
 -- section_git() via `vim.b.minigit_summary_string`.
