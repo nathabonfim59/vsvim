@@ -63,7 +63,11 @@ function M.section_git()
 		icon = nil
 	end
 	local s = MiniStatusline.section_git({ trunc_width = 80, icon = icon })
-	return s
+	if s == "" then
+		return s
+	end
+	-- Click the branch indicator to open lazygit in a floating TUI.
+	return "%@VsvimStatuslineGitClick@" .. s .. "%X"
 end
 
 -- Diff summary from mini.diff/gitsigns. VS Code folds this into the branch
@@ -235,6 +239,17 @@ function M.set_highlights()
 	end
 end
 
+-- Open lazygit from the statusline git branch click region.
+local function git_click_handler()
+	local ok, tui = pcall(require, "tui")
+	if ok then
+		-- Open lazygit focused on the branches panel.
+		tui.open({ "lazygit", "branch" }, { title = "lazygit" })
+	else
+		vim.notify("statusline: 'tui' module not found", vim.log.levels.ERROR)
+	end
+end
+
 -- Apply VS Code-style statusline.
 -- `opts` is forwarded to `mini.statusline.setup()` (merged with our defaults).
 function M.setup(opts)
@@ -243,6 +258,14 @@ function M.setup(opts)
 		vim.notify("statusline: 'mini.statusline' not found (run :PackUpdate)", vim.log.levels.ERROR)
 		return
 	end
+
+	-- Clicking the git branch indicator opens lazygit (if the tui module is available).
+	_G.vsvim_statusline_git_click = git_click_handler
+	vim.cmd([[
+		function! VsvimStatuslineGitClick(...) abort
+			call v:lua.vsvim_statusline_git_click()
+		endfunction
+	]])
 
 	-- Branch: MiniIcons.get("filetype", "git") gives the theme-consistent git glyph.
 	local ok_icons, MiniIcons = pcall(require, "mini.icons")
