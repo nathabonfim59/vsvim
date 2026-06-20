@@ -3,6 +3,10 @@
     "fff.nvim": {
       "rev": "1bb76f6da6872c56ce34df8a2e33e977187be5f9",
       "src": "https://github.com/dmtrKovalenko/fff.nvim"
+    },
+    "mini.nvim": {
+      "rev": "ecb05c524a99490c95a8862eb5cb09b1e629ed42",
+      "src": "https://github.com/nvim-mini/mini.nvim"
     }
   }
 }
