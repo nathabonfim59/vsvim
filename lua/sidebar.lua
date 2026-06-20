@@ -8,6 +8,10 @@
 
 local M = {}
 
+-- Stored original `MiniFiles.close()` so we can wrap it with our custom
+-- confirmation popup without touching the plugin source.
+local orig_mini_files_close = nil
+
 -- Compute the height of a full-height sidebar window.
 local function sidebar_height()
 	local has_tabline = vim.o.showtabline == 2 or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1)
@@ -272,7 +276,9 @@ local function close_with_confirmation(MiniFiles)
 	local changes_msg = get_pending_changes(MiniFiles)
 
 	if changes_msg == nil then
-		MiniFiles.close()
+		if orig_mini_files_close ~= nil then
+			orig_mini_files_close()
+		end
 		return
 	end
 
@@ -282,12 +288,16 @@ local function close_with_confirmation(MiniFiles)
 		with_confirm_result(1, function()
 			MiniFiles.synchronize()
 		end)
-		MiniFiles.close()
+		if orig_mini_files_close ~= nil then
+			orig_mini_files_close()
+		end
 	end
 
 	local function discard_and_close()
 		with_confirm_result(1, function()
-			MiniFiles.close()
+			if orig_mini_files_close ~= nil then
+				orig_mini_files_close()
+			end
 		end)
 	end
 
@@ -311,8 +321,9 @@ function M.toggle()
 		return
 	end
 
-	-- Close, showing a centered confirmation popup if there are pending changes.
-	close_with_confirmation(MiniFiles)
+	-- Close via the patched `MiniFiles.close()`, which shows our centered
+	-- confirmation popup when there are pending changes.
+	MiniFiles.close()
 end
 
 -- Open the sidebar at the given path (defaults to cwd).
@@ -368,6 +379,17 @@ function M.setup(opts)
 		},
 	}, opts or {}))
 
+	-- Patch `MiniFiles.close()` so every close path (the `q` mapping, `<C-b>`,
+	-- and any internal call) goes through our centered confirmation popup
+	-- instead of the command-line confirm dialog. Guard against re-patching if
+	-- `setup()` is called more than once.
+	if orig_mini_files_close == nil then
+		orig_mini_files_close = mini_files.close
+		mini_files.close = function()
+			close_with_confirmation(mini_files)
+		end
+	end
+
 	local group = vim.api.nvim_create_augroup("vsvim-sidebar", { clear = true })
 
 	-- Allow toggling the sidebar from inside mini.files buffers too.
@@ -381,10 +403,10 @@ function M.setup(opts)
 				M.toggle()
 			end, { buffer = buf_id, desc = "Toggle sidebar filepicker", silent = true })
 
-			-- `q` closes the filepicker, with a confirmation popup if there are
-			-- pending file system changes.
+			-- `q` closes the filepicker. `MiniFiles.close()` is patched below to
+			-- show our centered confirmation popup when there are pending changes.
 			vim.keymap.set("n", "q", function()
-				close_with_confirmation(mini_files)
+				mini_files.close()
 			end, { buffer = buf_id, desc = "Close sidebar filepicker", silent = true })
 
 			-- `l` opens/expands; on the synthetic ".." entry it goes up instead.
