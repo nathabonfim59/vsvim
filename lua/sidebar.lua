@@ -99,6 +99,25 @@ local function add_parent_entry(buf_id, MiniFiles)
 	end
 end
 
+-- Add a small amount of left padding to every entry so the sidebar content does
+-- not sit flush against the window edge, matching VS Code's explorer spacing.
+local padding_ns = vim.api.nvim_create_namespace("vsvim-sidebar-padding")
+local function add_left_padding(buf_id)
+	vim.api.nvim_buf_clear_namespace(buf_id, padding_ns, 0, -1)
+
+	local line_count = vim.api.nvim_buf_line_count(buf_id)
+	for i = 1, line_count do
+		local line = vim.api.nvim_buf_get_lines(buf_id, i - 1, i, false)[1] or ""
+		if #line > 0 then
+			vim.api.nvim_buf_set_extmark(buf_id, padding_ns, i - 1, 0, {
+				virt_text = { { " ", "Normal" } },
+				virt_text_pos = "inline",
+				right_gravity = false,
+			})
+		end
+	end
+end
+
 -- Open/expand the entry under cursor, treating the synthetic ".." entry as
 -- "go to parent directory".
 local function go_in_or_up(MiniFiles)
@@ -214,12 +233,14 @@ function M.setup(opts)
 		end,
 	})
 
-	-- Add a synthetic ".." entry at the top of each directory listing.
+	-- Add a synthetic ".." entry at the top of each directory listing and keep
+	-- a small left padding on every line.
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
 		pattern = "MiniFilesBufferUpdate",
 		callback = function(args)
 			add_parent_entry(args.data.buf_id, mini_files)
+			add_left_padding(args.data.buf_id)
 		end,
 	})
 
