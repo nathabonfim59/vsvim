@@ -10,6 +10,9 @@
 local M = {}
 
 function M.apply()
+	-- VSCode text-editing shortcuts (no-modes experience).
+	-- Must run after plugins.lua so mini.pairs / mini.comment are set up.
+	require("keymaps.vscode").apply()
 	-- fff.nvim (fuzzy finder) keymaps. fff.nvim is required by plugins.lua,
 	-- so it is available by the time presets run.
 	vim.keymap.set("n", "<leader>sf", function()

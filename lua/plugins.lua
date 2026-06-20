@@ -41,6 +41,18 @@ require("mini.icons").setup({
 -- section_git() via `vim.b.minigit_summary_string`.
 require("mini.git").setup()
 
+-- mini.pairs: auto-close brackets, quotes, etc. — VSCode's default behaviour.
+-- mini.keymap's "minipairs_cr" / "minipairs_bs" steps depend on this.
+require("mini.pairs").setup()
+
+-- mini.comment: gc / gcc operators for line and block comments.
+-- Ctrl+/ and Shift+Alt+A in the vscode keymap preset delegate here.
+require("mini.comment").setup()
+
+-- mini.completion: lightweight built-in completion used by mini.keymap's
+-- "pmenu_accept" / "pmenu_prev" smart-Tab steps.
+require("mini.completion").setup()
+
 -- VS Code-style tabline (listed buffers as tabs, colored icons, modified
 -- dot / close glyph, click-to-switch). Pure logic in lua/tabline.lua.
 require("tabline").setup()
