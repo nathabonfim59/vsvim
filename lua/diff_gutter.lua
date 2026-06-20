@@ -8,6 +8,8 @@
 -- Behavior:
 --   - Left-click a sign in the sign column to open a floating hunk preview.
 --   - Inside the float press `d` to discard the hunk, `q` or `<Esc>` to close.
+--   - The float's statusline has a clickable "Discard" button on the bottom
+--     right (left-click it to discard the hunk).
 --   - Right-click a sign to discard the hunk directly (no preview).
 --
 -- This is built on `mini.diff`'s hunk data (`MiniDiff.get_buf_data()`), so the
@@ -15,6 +17,13 @@
 -- Git source mini.diff already maintains.
 
 local M = {}
+
+-- Registry of pending "discard" actions for the preview float's statusline
+-- button. The statusline `%@handler@` item only passes a numeric `minwid` to
+-- its handler, so we stash the real {buf_id, hunk, win, pbuf} here keyed by an
+-- id and embed that id as the minwid in the statusline string.
+local discard_actions = {}
+local next_discard_id = 1
 
 -- Close a floating preview window and delete its scratch buffer.
 local function close_float(win_id, buf_id)
@@ -109,17 +118,36 @@ local function open_hunk_preview(buf_id, hunk)
 		title_pos = "center",
 	})
 
+	-- Register the discard action so the statusline button's click handler
+	-- (which only receives a numeric minwid) can find this float's hunk. Done
+	-- before defining `close`/`discard` so the closures capture this local.
+	local discard_id = next_discard_id
+	next_discard_id = next_discard_id + 1
+	discard_actions[discard_id] = { buf_id = buf_id, hunk = hunk, win = win, pbuf = pbuf }
+
 	local function close()
+		discard_actions[discard_id] = nil
 		close_float(win, pbuf)
+	end
+
+	local function discard()
+		reset_hunk(buf_id, hunk)
+		close()
 	end
 
 	local opts = { buffer = pbuf, silent = true, nowait = true }
 	vim.keymap.set("n", "q", close, opts)
 	vim.keymap.set("n", "<Esc>", close, opts)
-	vim.keymap.set("n", "d", function()
-		reset_hunk(buf_id, hunk)
-		close()
-	end, vim.tbl_extend("force", opts, { desc = "Discard hunk" }))
+	vim.keymap.set("n", "d", discard, vim.tbl_extend("force", opts, { desc = "Discard hunk" }))
+
+	-- Clickable "Discard" button on the bottom right of the float. `%=` right
+	-- aligns everything after it; `%N@func@label%X` makes `label` run `func`
+	-- with `N` as its minwid arg on click. See :help 'statusline' (%@ item).
+	-- `style = "minimal"` leaves 'statusline' enabled, so we just set it.
+	vim.api.nvim_set_option_value("statusline", string.format(
+		"%%#Comment# d: discard · q: close %%*%%=%%#DiffGutterDiscardBtn#%%%d@VsvimDiffGutterDiscardClick@ Discard %%X%%*",
+		discard_id
+	), { win = win })
 
 	-- Close automatically if the user leaves the float.
 	vim.api.nvim_create_autocmd("WinLeave", {
@@ -159,6 +187,23 @@ local function click_handler(_minwid, _clicks, button, _modifiers)
 	end
 end
 
+-- Handler for clicks on the preview float's "Discard" statusline button. The
+-- minwid is the registry id embedded in the statusline string.
+local function discard_click_handler(minwid, _clicks, button, _modifiers)
+	if button ~= "l" then
+		return
+	end
+	local action = discard_actions[minwid]
+	if not action then
+		return
+	end
+	reset_hunk(action.buf_id, action.hunk)
+	if action.win and vim.api.nvim_win_is_valid(action.win) then
+		close_float(action.win, action.pbuf)
+	end
+	discard_actions[minwid] = nil
+end
+
 -- Apply the clickable diff gutter.
 function M.setup()
 	local ok = pcall(require, "mini.diff")
@@ -167,12 +212,29 @@ function M.setup()
 		return
 	end
 
-	-- Expose Lua handler and create Vimscript wrapper so the 'statuscolumn'
-	-- %@ item has a function it can call.
+	-- Highlight for the "Discard" statusline button. `default = true` lets a
+	-- colorscheme override it; re-applied on colorscheme changes below.
+	local function define_hl()
+		vim.api.nvim_set_hl(0, "DiffGutterDiscardBtn", {
+			default = true,
+			bg = "#501414",
+			fg = "#e06c75",
+			bold = true,
+		})
+	end
+	define_hl()
+	vim.api.nvim_create_autocmd("ColorScheme", { callback = define_hl })
+
+	-- Expose Lua handlers and Vimscript wrappers so the 'statuscolumn' and
+	-- 'statusline' %@ items have functions they can call.
 	_G.vsvim_diff_gutter_click = click_handler
+	_G.vsvim_diff_gutter_discard_click = discard_click_handler
 	vim.cmd([[
 		function! VsvimDiffGutterClick(minwid, clicks, button, modifiers) abort
 			call v:lua.vsvim_diff_gutter_click(a:minwid, a:clicks, a:button, a:modifiers)
+		endfunction
+		function! VsvimDiffGutterDiscardClick(minwid, clicks, button, modifiers) abort
+			call v:lua.vsvim_diff_gutter_discard_click(a:minwid, a:clicks, a:button, a:modifiers)
 		endfunction
 	]])
 
