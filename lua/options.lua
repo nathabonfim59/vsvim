@@ -20,6 +20,10 @@ local options = {
 	-- See :help 'cursorline'
 	cursorline = true,
 
+	-- Always show the sign column so git gutter indicators don't shift the
+	-- text when they appear/disappear. See :help 'signcolumn'
+	signcolumn = "yes",
+
 	-- Show invisible characters (tabs, trailing whitespace, etc.) so real
 	-- tabs are visible. See :help 'list', :help 'listchars'
 	list = true,

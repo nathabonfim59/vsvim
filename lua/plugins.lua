@@ -41,6 +41,41 @@ require("mini.icons").setup({
 -- section_git() via `vim.b.minigit_summary_string`.
 require("mini.git").setup()
 
+-- mini.diff: VS Code-style gutter diff indicators (add/change/delete bars).
+-- Uses mini.diff's built-in Git source, so indicators update as you edit and
+-- stage/reset hunks with the `gh` / `gH` operators and `[h` / `]h` navigation.
+require("mini.diff").setup({
+	view = {
+		-- Show indicators in the sign column rather than colored line numbers.
+		style = "sign",
+		-- VS Code uses a thin colored bar in the gutter; deletion is shown as a
+		-- small underscore on the line after the removed block.
+		signs = { add = "▎", change = "▎", delete = "▁" },
+	},
+})
+
+-- Color the diff gutter indicators with vscode.nvim's git palette.
+-- mini.diff sets its highlight groups as defaults on ColorScheme, so we re-apply
+-- our overrides after every colorscheme reload.
+local function set_diff_highlights()
+	local ok, vsc = pcall(require, "vscode.colors")
+	if not ok then
+		return
+	end
+	local c = vsc.get_colors()
+	local hl = vim.api.nvim_set_hl
+	hl(0, "MiniDiffSignAdd", { fg = c.vscGitAdded, bg = "NONE", default = false })
+	hl(0, "MiniDiffSignChange", { fg = c.vscGitModified, bg = "NONE", default = false })
+	hl(0, "MiniDiffSignDelete", { fg = c.vscGitDeleted, bg = "NONE", default = false })
+end
+
+local diff_hl_group = vim.api.nvim_create_augroup("vsvim-diff-hl", { clear = true })
+vim.api.nvim_create_autocmd("ColorScheme", {
+	group = diff_hl_group,
+	callback = set_diff_highlights,
+})
+set_diff_highlights()
+
 -- mini.pairs: auto-close brackets, quotes, etc. — VSCode's default behaviour.
 -- mini.keymap's "minipairs_cr" / "minipairs_bs" steps depend on this.
 require("mini.pairs").setup()
