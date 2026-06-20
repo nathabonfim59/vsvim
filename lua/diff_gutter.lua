@@ -212,14 +212,15 @@ function M.setup()
 		return
 	end
 
-	-- Highlight for the "Discard" statusline button. `default = true` lets a
-	-- colorscheme override it; re-applied on colorscheme changes below.
+	-- Highlight for the "Discard" statusline button. Links to `DiffDelete`
+	-- (a red background in the VS Code theme: vscDiffRedLight) so the button
+	-- picks up the active colorscheme's diff-delete color automatically.
+	-- `default = true` lets a colorscheme override it; re-applied on
+	-- colorscheme changes because loading a scheme clears existing groups.
 	local function define_hl()
 		vim.api.nvim_set_hl(0, "DiffGutterDiscardBtn", {
 			default = true,
-			bg = "#501414",
-			fg = "#e06c75",
-			bold = true,
+			link = "DiffDelete",
 		})
 	end
 	define_hl()
