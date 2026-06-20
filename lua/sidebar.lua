@@ -220,6 +220,8 @@ end
 local function show_confirm_modal(change_lines, on_apply, on_discard)
 	ensure_modal_highlights()
 
+	local MiniFiles = require("mini.files")
+
 	local lines = {
 		"Pending file system changes",
 		"",
@@ -328,6 +330,16 @@ local function show_confirm_modal(change_lines, on_apply, on_discard)
 		-- Ignore external attempts to move focus away from the modal.
 	end
 
+	-- Stop `mini.files`' focus-loss timer while the modal is open. Otherwise the
+	-- timer would keep calling `MiniFiles.close()` every second (the modal buffer
+	-- is not `minifiles`), and it could reopen a second modal in the gap between
+	-- closing this one and running the chosen action.
+	local H = get_mini_files_helpers()
+	local focus_timer = H and H.timers and H.timers.focus
+	if focus_timer and type(focus_timer.stop) == "function" then
+		pcall(focus_timer.stop, focus_timer)
+	end
+
 	-- Cleanup state.
 	local closed = false
 	local augroup = vim.api.nvim_create_augroup("vsvim-sidebar-confirm", { clear = true })
@@ -344,6 +356,12 @@ local function show_confirm_modal(change_lines, on_apply, on_discard)
 		end
 		if backdrop_win ~= 0 and vim.api.nvim_win_is_valid(backdrop_win) then
 			pcall(vim.api.nvim_win_close, backdrop_win, true)
+		end
+		-- Resume focus-loss tracking if the filepicker is still open (e.g. the
+		-- user cancelled the modal). If an action closed the filepicker, this is
+		-- a no-op because `explorer_track_lost_focus` only starts the timer.
+		if H and H.explorer_track_lost_focus and MiniFiles.get_explorer_state() then
+			pcall(H.explorer_track_lost_focus)
 		end
 		vim.cmd("redraw")
 	end
