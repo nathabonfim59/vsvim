@@ -8,25 +8,18 @@
 -- Behavior:
 --   - Left-click a sign in the sign column to open a floating hunk preview.
 --   - Inside the float press `d` to discard the hunk, `q` or `<Esc>` to close.
---   - The float has two clickable buttons at the bottom of its content area:
---     "Discard" (red) and "Close" (gray). Left-click either to act.
+--   - The float has two clickable buttons at the top, right-aligned:
+--     "Discard" (red) and "Close" (gray, preselected). Tab cycles between
+--     them, Enter activates, mouse click works too.
 --   - Right-click a sign to discard the hunk directly (no preview).
 --
 -- This is built on `mini.diff`'s hunk data (`MiniDiff.get_buf_data()`), so the
 -- indicators, preview contents, and reset logic all stay consistent with the
 -- Git source mini.diff already maintains.
 
-local M = {}
+local modal = require("modal")
 
--- Close a floating preview window and delete its scratch buffer.
-local function close_float(win_id, buf_id)
-	if win_id and vim.api.nvim_win_is_valid(win_id) then
-		vim.api.nvim_win_close(win_id, true)
-	end
-	if buf_id and vim.api.nvim_buf_is_valid(buf_id) then
-		vim.api.nvim_buf_delete(buf_id, { force = true })
-	end
-end
+local M = {}
 
 -- Find the mini.diff hunk covering the given 1-indexed buffer line.
 local function hunk_at_line(buf_data, line)
@@ -89,144 +82,30 @@ end
 
 -- Open a floating window previewing the hunk under the cursor/click.
 local function open_hunk_preview(buf_id, hunk)
-	local lines = make_preview(buf_id, hunk)
-
-	-- Button bar at the top of the float content, padded with blank lines
-	-- below. "Discard" (red) and "Close" (gray) are right-aligned.
-	local width = math.min(80, math.max(40, vim.o.columns - 10))
-	local discard_btn = " Discard "
-	local close_btn = " Close "
-	local spacing = "  "
-	local buttons_text = discard_btn .. spacing .. close_btn
-	local pad = math.max(0, width - #buttons_text)
-	local button_line = string.rep(" ", pad) .. buttons_text
-
-	-- Layout: [buttons] [blank] [blank] [diff]
-	local button_line_nr = 1 -- 1-based line number of the button row
-	table.insert(lines, 1, "") -- padding below buttons
-	table.insert(lines, 1, "") -- padding below buttons
-	table.insert(lines, 1, button_line)
-
-	local pbuf = vim.api.nvim_create_buf(false, true)
-	vim.api.nvim_buf_set_lines(pbuf, 0, -1, false, lines)
-	vim.api.nvim_set_option_value("modifiable", false, { buf = pbuf })
-	vim.api.nvim_set_option_value("buftype", "nofile", { buf = pbuf })
-	vim.api.nvim_set_option_value("filetype", "diff", { buf = pbuf })
-
-	-- Button geometry (0-based byte columns for extmarks).
-	local ns = vim.api.nvim_create_namespace("vsvim_diff_gutter")
-	local discard_col0 = pad
-	local close_col0 = pad + #discard_btn + #spacing
-
-	-- Selection state: "close" is preselected. Tab cycles between the two;
-	-- Enter activates the selected button. The selected button gets
-	-- `DiffGutterBtnSel` (→ PmenuSel, blue) instead of its normal color.
-	local selected = "close"
-	local buttons = { "discard", "close" }
-
-	local function update_button_hl()
-		vim.api.nvim_buf_clear_namespace(pbuf, ns, 0, -1)
-		local d_hl = selected == "discard" and "DiffGutterBtnSel" or "DiffGutterDiscardBtn"
-		local c_hl = selected == "close" and "DiffGutterBtnSel" or "DiffGutterCloseBtn"
-		vim.api.nvim_buf_set_extmark(pbuf, ns, button_line_nr - 1, discard_col0, {
-			end_col = discard_col0 + #discard_btn,
-			hl_group = d_hl,
-		})
-		vim.api.nvim_buf_set_extmark(pbuf, ns, button_line_nr - 1, close_col0, {
-			end_col = close_col0 + #close_btn,
-			hl_group = c_hl,
-		})
-	end
-
-	local height = math.min(20, math.max(3, #lines))
-	local win = vim.api.nvim_open_win(pbuf, true, {
-		relative = "cursor",
-		row = 1,
-		col = 0,
-		width = width,
-		height = height,
-		anchor = "NW",
-		style = "minimal",
-		border = "rounded",
+	modal.open({
 		title = " Hunk preview ",
-		title_pos = "center",
-	})
-
-	local function close()
-		close_float(win, pbuf)
-	end
-
-	local function discard()
-		reset_hunk(buf_id, hunk)
-		close()
-	end
-
-	-- Activate the currently selected button.
-	local function activate()
-		if selected == "discard" then
-			discard()
-		else
-			close()
-		end
-	end
-
-	-- Cycle selection to the next button (Tab) or previous (Shift-Tab).
-	local function cycle(dir)
-		local idx = 1
-		for i, b in ipairs(buttons) do
-			if b == selected then
-				idx = i
-				break
+		lines = make_preview(buf_id, hunk),
+		position = "cursor",
+		filetype = "diff",
+		min_width = 40,
+		buttons = {
+			position = "top",
+			align = "right",
+			items = {
+				{ label = " Discard ", hl = "DiffGutterDiscardBtn", action = "discard" },
+				{ label = " Close ", hl = "DiffGutterCloseBtn", action = "close", default = true },
+			},
+		},
+		keymaps = {
+			["d"] = "discard",
+			["q"] = "close",
+			["<Esc>"] = "close",
+		},
+		on_action = function(action)
+			if action == "discard" then
+				reset_hunk(buf_id, hunk)
 			end
-		end
-		idx = idx + dir
-		if idx < 1 then
-			idx = #buttons
-		elseif idx > #buttons then
-			idx = 1
-		end
-		selected = buttons[idx]
-		update_button_hl()
-	end
-
-	-- Apply initial highlight (Close preselected).
-	update_button_hl()
-
-	local opts = { buffer = pbuf, silent = true, nowait = true }
-	vim.keymap.set("n", "q", close, opts)
-	vim.keymap.set("n", "<Esc>", close, opts)
-	vim.keymap.set("n", "d", discard, vim.tbl_extend("force", opts, { desc = "Discard hunk" }))
-	vim.keymap.set("n", "<Tab>", function()
-		cycle(1)
-	end, vim.tbl_extend("force", opts, { desc = "Next button" }))
-	vim.keymap.set("n", "<S-Tab>", function()
-		cycle(-1)
-	end, vim.tbl_extend("force", opts, { desc = "Previous button" }))
-	vim.keymap.set("n", "<CR>", activate, vim.tbl_extend("force", opts, { desc = "Activate button" }))
-
-	-- Clickable buttons: intercept <LeftMouse> on the button line and dispatch
-	-- by column position. Non-button clicks fall through to cursor positioning
-	-- so normal mouse behavior (selection, scrolling target) is preserved.
-	vim.keymap.set("n", "<LeftMouse>", function()
-		local pos = vim.fn.getmousepos()
-		if pos.line == button_line_nr then
-			local col = pos.column -- 1-based byte column
-			if col > discard_col0 and col <= discard_col0 + #discard_btn then
-				discard()
-				return
-			elseif col > close_col0 and col <= close_col0 + #close_btn then
-				close()
-				return
-			end
-		end
-		vim.api.nvim_win_set_cursor(win, { pos.line, math.max(0, pos.column - 1) })
-	end, { buffer = pbuf, silent = true })
-
-	-- Close automatically if the user leaves the float.
-	vim.api.nvim_create_autocmd("WinLeave", {
-		buffer = pbuf,
-		once = true,
-		callback = close,
+		end,
 	})
 end
 
@@ -268,17 +147,15 @@ function M.setup()
 		return
 	end
 
-	-- Highlights for the float's bottom button bar. All link to existing
-	-- groups so they pick up the active colorscheme automatically:
+	-- Highlights for the float's button bar. All link to existing groups so
+	-- they pick up the active colorscheme automatically:
 	--   DiffGutterDiscardBtn → DiffDelete  (red bg, destructive action)
 	--   DiffGutterCloseBtn   → PmenuSbar   (gray bg, neutral dismissal)
-	--   DiffGutterBtnSel     → PmenuSel    (blue bg, keyboard-selected button)
 	-- `default = true` lets a colorscheme override them; re-applied on
 	-- colorscheme changes because loading a scheme clears existing groups.
 	local function define_hl()
 		vim.api.nvim_set_hl(0, "DiffGutterDiscardBtn", { default = true, link = "DiffDelete" })
 		vim.api.nvim_set_hl(0, "DiffGutterCloseBtn", { default = true, link = "PmenuSbar" })
-		vim.api.nvim_set_hl(0, "DiffGutterBtnSel", { default = true, link = "PmenuSel" })
 	end
 	define_hl()
 	vim.api.nvim_create_autocmd("ColorScheme", { callback = define_hl })

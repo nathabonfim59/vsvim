@@ -8,6 +8,8 @@
 
 local M = {}
 
+local modal = require("modal")
+
 -- Stored original `MiniFiles.close()` so we can wrap it with our custom
 -- confirmation popup without touching the plugin source.
 local orig_mini_files_close = nil
@@ -204,8 +206,8 @@ local function get_pending_changes(MiniFiles)
 	return captured
 end
 
--- Highlight group for the modal backdrop. Linked lazily so it plays nicely
--- with any colorscheme already loaded.
+-- Highlight groups for the modal backdrop and title. Linked lazily so they
+-- play nicely with any colorscheme already loaded.
 local function ensure_modal_highlights()
 	if vim.fn.hlID("VsvimSidebarBackdrop") == 0 then
 		vim.api.nvim_set_hl(0, "VsvimSidebarBackdrop", { link = "NormalFloat", default = true })
@@ -218,13 +220,14 @@ end
 -- Show a centered, focused modal describing pending changes and ask whether to
 -- apply them, discard them, or cancel the close operation.
 --
--- This is implemented as a "proper" modal: it steals focus on open, closes
--- itself before running the chosen action, and cleans up its autocmds and
--- backdrop automatically.
+-- Built on the reusable `modal` module (lua/modal.lua). The mini.files-specific
+-- focus management (stopping the focus-loss timer, focus guard) is handled via
+-- on_open/on_close callbacks and the modal module's `focus_guard` option.
 local function show_confirm_modal(change_lines, on_apply, on_discard)
 	ensure_modal_highlights()
 
 	local MiniFiles = require("mini.files")
+	local H = get_mini_files_helpers()
 
 	local lines = {
 		"Pending file system changes",
@@ -238,176 +241,75 @@ local function show_confirm_modal(change_lines, on_apply, on_discard)
 		" [q/Esc]   Cancel and keep filepicker open",
 	})
 
-	local width = math.min(70, math.max(45, vim.o.columns - 12))
-	local height = math.min(#lines + 2, vim.o.lines - 6)
-	local row = math.floor((vim.o.lines - height) / 2)
-	local col = math.floor((vim.o.columns - width) / 2)
-
-	-- Backdrop: full-screen non-focusable float behind the modal. It visually
-	-- dims the rest of the UI and prevents accidental interaction with the
-	-- filepicker while the modal is open.
-	local backdrop_buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[backdrop_buf].buftype = "nofile"
-	vim.bo[backdrop_buf].bufhidden = "wipe"
-	vim.bo[backdrop_buf].swapfile = false
-	vim.bo[backdrop_buf].modifiable = false
-
-	local backdrop_win = vim.api.nvim_open_win(backdrop_buf, false, {
-		relative = "editor",
-		row = 0,
-		col = 0,
-		width = vim.o.columns,
-		height = vim.o.lines,
-		style = "minimal",
-		focusable = false,
-		zindex = 100,
-		noautocmd = true,
-	})
-	if backdrop_win ~= 0 then
-		vim.wo[backdrop_win].winhighlight = "Normal:VsvimSidebarBackdrop"
-		vim.wo[backdrop_win].winblend = 0
-	end
-
-	-- Modal content buffer.
-	local buf_id = vim.api.nvim_create_buf(false, true)
-	vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
-	vim.bo[buf_id].buftype = "nofile"
-	vim.bo[buf_id].bufhidden = "wipe"
-	vim.bo[buf_id].swapfile = false
-	vim.bo[buf_id].modifiable = false
-	vim.bo[buf_id].filetype = "vsvim-sidebar-confirm"
-
-	-- Modal window. `enter = true` focuses it; `noautocmd = true` keeps
-	-- `mini.files` autocommands from interfering during creation.
-	local win_id = vim.api.nvim_open_win(buf_id, true, {
-		relative = "editor",
-		row = row,
-		col = col,
-		width = width,
-		height = height,
-		style = "minimal",
-		border = "rounded",
+	modal.open({
 		title = { { " Confirm Changes ", "VsvimSidebarModalTitle" } },
-		title_pos = "center",
-		zindex = 150,
+		lines = lines,
+		position = "center",
+		width = math.min(70, math.max(45, vim.o.columns - 12)),
+		max_height = vim.o.lines - 6,
+		filetype = "vsvim-sidebar-confirm",
+		border = "rounded",
+		backdrop = true,
+		backdrop_hl = "VsvimSidebarBackdrop",
 		noautocmd = true,
-	})
-
-	vim.wo[win_id].cursorline = true
-	vim.wo[win_id].winhighlight = "Normal:NormalFloat,FloatBorder:FloatBorder,CursorLine:Visual"
-
-	-- Place cursor on the first actionable line ("Apply").
-	local action_line = 1
-	for i, line in ipairs(lines) do
-		if line:match("^ %[yY%]") or line:match("^ %[[yY]%/") then
-			action_line = i
-			break
-		end
-	end
-	pcall(vim.api.nvim_win_set_cursor, win_id, { action_line, 0 })
-
-	-- Force focus now and again after the current event loop tick. This handles
-	-- cases where the modal is opened from a keymap or autocommand that would
-	-- otherwise steal focus back.
-	local function steal_focus()
-		if vim.api.nvim_win_is_valid(win_id) then
-			vim.api.nvim_set_current_win(win_id)
-		end
-	end
-	steal_focus()
-	vim.schedule(steal_focus)
-
-	-- Temporarily override `nvim_set_current_win` so nothing can pull focus away
-	-- from the modal while it is open. This is needed because `mini.files` runs
-	-- a focus-loss timer that calls `MiniFiles.close()` and then restores focus
-	-- to the previously focused window; without this guard the modal would be
-	-- dismissed immediately (e.g. when clicking outside the filetree).
-	local orig_set_current_win = vim.api.nvim_set_current_win
-	vim.api.nvim_set_current_win = function(win)
-		if not vim.api.nvim_win_is_valid(win_id) then
-			vim.api.nvim_set_current_win = orig_set_current_win
-			return orig_set_current_win(win)
-		end
-		if win == win_id then
-			return orig_set_current_win(win)
-		end
-		-- Ignore external attempts to move focus away from the modal.
-	end
-
-	-- Stop `mini.files`' focus-loss timer while the modal is open. Otherwise the
-	-- timer would keep calling `MiniFiles.close()` every second (the modal buffer
-	-- is not `minifiles`), and it could reopen a second modal in the gap between
-	-- closing this one and running the chosen action.
-	local H = get_mini_files_helpers()
-	local focus_timer = H and H.timers and H.timers.focus
-	if focus_timer and type(focus_timer.stop) == "function" then
-		pcall(focus_timer.stop, focus_timer)
-	end
-
-	-- Cleanup state.
-	local closed = false
-	local augroup = vim.api.nvim_create_augroup("vsvim-sidebar-confirm", { clear = true })
-
-	local function close_windows()
-		if closed then
-			return
-		end
-		closed = true
-		vim.api.nvim_set_current_win = orig_set_current_win
-		pcall(vim.api.nvim_del_augroup_by_id, augroup)
-		if vim.api.nvim_win_is_valid(win_id) then
-			pcall(vim.api.nvim_win_close, win_id, true)
-		end
-		if backdrop_win ~= 0 and vim.api.nvim_win_is_valid(backdrop_win) then
-			pcall(vim.api.nvim_win_close, backdrop_win, true)
-		end
-		-- Resume focus-loss tracking if the filepicker is still open (e.g. the
-		-- user cancelled the modal). If an action closed the filepicker, this is
-		-- a no-op because `explorer_track_lost_focus` only starts the timer.
-		if H and H.explorer_track_lost_focus and MiniFiles.get_explorer_state() then
-			pcall(H.explorer_track_lost_focus)
-		end
-		vim.cmd("redraw")
-	end
-
-	-- Close the modal automatically if the user somehow leaves it (e.g. mouse
-	-- click outside, `<C-w>w`, or another plugin switching windows).
-	vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
-		group = augroup,
-		buffer = buf_id,
-		once = true,
-		callback = close_windows,
-	})
-
-	-- Helper that closes the modal immediately and runs the chosen action in the
-	-- next tick, after Neovim has finished processing the keymap.
-	local function run_action(action)
-		close_windows()
-		vim.schedule(function()
-			local ok, err = pcall(action)
-			if not ok then
-				vim.notify("sidebar: " .. tostring(err), vim.log.levels.ERROR)
+		focus_guard = true,
+		win_options = {
+			cursorline = true,
+			winhighlight = "Normal:NormalFloat,FloatBorder:FloatBorder,CursorLine:Visual",
+		},
+		keymaps = {
+			["y"] = "apply",
+			["<CR>"] = "apply",
+			["n"] = "discard",
+			["q"] = "cancel",
+			["<Esc>"] = "cancel",
+			["<C-c>"] = "cancel",
+		},
+		on_open = function(ctx)
+			-- Place cursor on the first actionable line ("Apply").
+			local action_line = 1
+			for i, line in ipairs(lines) do
+				if line:match("^ %[yY%]") or line:match("^ %[[yY]%/") then
+					action_line = i
+					break
+				end
 			end
-		end)
-	end
+			pcall(vim.api.nvim_win_set_cursor, ctx.win, { action_line, 0 })
 
-	local opts = { buffer = buf_id, silent = true, nowait = true, noremap = true }
-
-	vim.keymap.set("n", "y", function()
-		run_action(on_apply)
-	end, vim.tbl_extend("force", opts, { desc = "Apply changes and close filepicker" }))
-
-	vim.keymap.set("n", "<CR>", function()
-		run_action(on_apply)
-	end, vim.tbl_extend("force", opts, { desc = "Apply changes and close filepicker" }))
-
-	vim.keymap.set("n", "n", function()
-		run_action(on_discard)
-	end, vim.tbl_extend("force", opts, { desc = "Discard changes and close filepicker" }))
-
-	vim.keymap.set("n", "q", close_windows, vim.tbl_extend("force", opts, { desc = "Cancel and keep filepicker open" }))
-	vim.keymap.set("n", "<Esc>", close_windows, vim.tbl_extend("force", opts, { desc = "Cancel and keep filepicker open" }))
-	vim.keymap.set("n", "<C-c>", close_windows, vim.tbl_extend("force", opts, { desc = "Cancel and keep filepicker open" }))
+			-- Stop `mini.files`' focus-loss timer while the modal is open.
+			-- Otherwise the timer would keep calling `MiniFiles.close()` every
+			-- second (the modal buffer is not `minifiles`), and it could reopen a
+			-- second modal in the gap between closing this one and running the
+			-- chosen action.
+			local focus_timer = H and H.timers and H.timers.focus
+			if focus_timer and type(focus_timer.stop) == "function" then
+				pcall(focus_timer.stop, focus_timer)
+			end
+		end,
+		on_close = function()
+			-- Resume focus-loss tracking if the filepicker is still open (e.g.
+			-- the user cancelled the modal). If an action closed the filepicker,
+			-- this is a no-op because `explorer_track_lost_focus` only starts the
+			-- timer.
+			if H and H.explorer_track_lost_focus and MiniFiles.get_explorer_state() then
+				pcall(H.explorer_track_lost_focus)
+			end
+		end,
+		on_action = function(action)
+			if action == "apply" then
+				local ok, err = pcall(on_apply)
+				if not ok then
+					vim.notify("sidebar: " .. tostring(err), vim.log.levels.ERROR)
+				end
+			elseif action == "discard" then
+				local ok, err = pcall(on_discard)
+				if not ok then
+					vim.notify("sidebar: " .. tostring(err), vim.log.levels.ERROR)
+				end
+			end
+			-- "cancel" is a no-op (modal already closed)
+		end,
+	})
 end
 
 -- Close the sidebar, but show a centered confirmation modal if there are
