@@ -595,6 +595,11 @@ function M.setup(opts)
 				go_in_or_up(mini_files)
 			end, { buffer = buf_id, desc = "Open/expand or go to parent", silent = true })
 
+			-- `Enter` also opens/expands, matching VS Code's explorer behaviour.
+			vim.keymap.set("n", "<CR>", function()
+				go_in_or_up(mini_files)
+			end, { buffer = buf_id, desc = "Open/expand or go to parent", silent = true })
+
 			-- Single-click to expand folders / open files, like VS Code's explorer.
 			vim.keymap.set("n", "<LeftRelease>", function()
 				local pos = vim.fn.getmousepos()
