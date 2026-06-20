@@ -311,6 +311,23 @@ local function show_confirm_modal(change_lines, on_apply, on_discard)
 	steal_focus()
 	vim.schedule(steal_focus)
 
+	-- Temporarily override `nvim_set_current_win` so nothing can pull focus away
+	-- from the modal while it is open. This is needed because `mini.files` runs
+	-- a focus-loss timer that calls `MiniFiles.close()` and then restores focus
+	-- to the previously focused window; without this guard the modal would be
+	-- dismissed immediately (e.g. when clicking outside the filetree).
+	local orig_set_current_win = vim.api.nvim_set_current_win
+	vim.api.nvim_set_current_win = function(win)
+		if not vim.api.nvim_win_is_valid(win_id) then
+			vim.api.nvim_set_current_win = orig_set_current_win
+			return orig_set_current_win(win)
+		end
+		if win == win_id then
+			return orig_set_current_win(win)
+		end
+		-- Ignore external attempts to move focus away from the modal.
+	end
+
 	-- Cleanup state.
 	local closed = false
 	local augroup = vim.api.nvim_create_augroup("vsvim-sidebar-confirm", { clear = true })
@@ -320,6 +337,7 @@ local function show_confirm_modal(change_lines, on_apply, on_discard)
 			return
 		end
 		closed = true
+		vim.api.nvim_set_current_win = orig_set_current_win
 		pcall(vim.api.nvim_del_augroup_by_id, augroup)
 		if vim.api.nvim_win_is_valid(win_id) then
 			pcall(vim.api.nvim_win_close, win_id, true)
