@@ -24,6 +24,9 @@ local options = {
 	-- text when they appear/disappear. See :help 'signcolumn'
 	signcolumn = "yes",
 
+	-- Enable mouse everywhere so gutter signs can be clicked. See :help 'mouse'
+	mouse = "a",
+
 	-- Show invisible characters (tabs, trailing whitespace, etc.) so real
 	-- tabs are visible. See :help 'list', :help 'listchars'
 	list = true,

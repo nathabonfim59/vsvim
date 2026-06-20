@@ -76,6 +76,11 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 })
 set_diff_highlights()
 
+-- Clickable diff gutter: left-click a hunk sign to preview it in a floating
+-- window (d to discard, q/<Esc> to close), right-click to discard directly.
+-- Pure logic in lua/diff_gutter.lua.
+require("diff_gutter").setup()
+
 -- mini.pairs: auto-close brackets, quotes, etc. — VSCode's default behaviour.
 -- mini.keymap's "minipairs_cr" / "minipairs_bs" steps depend on this.
 require("mini.pairs").setup()
