@@ -21,7 +21,7 @@ end
 
 -- Style a mini.files window so it looks like a docked left sidebar.
 -- mini.files always uses floating windows; this pins the float to the left
--- edge with no border and full editor height.
+-- edge with a single border and full editor height.
 local function style_sidebar_window(win_id)
 	if not vim.api.nvim_win_is_valid(win_id) then
 		return
@@ -35,14 +35,18 @@ local function style_sidebar_window(win_id)
 	local has_tabline = vim.o.showtabline == 2 or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1)
 	local width = MiniFiles.config.windows.width_focus
 
+	-- Account for the top and bottom border rows so the float fits between the
+	-- tabline (if any) and the status/command line.
+	local height = math.max(1, sidebar_height() - 2)
+
 	vim.api.nvim_win_set_config(win_id, {
 		relative = "editor",
 		anchor = "NW",
 		row = has_tabline and 1 or 0,
 		col = 0,
 		width = width,
-		height = sidebar_height(),
-		border = "none",
+		height = height,
+		border = "single",
 	})
 end
 
