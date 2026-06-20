@@ -12,6 +12,14 @@ local options = {
 	shiftwidth = 4,
 	softtabstop = 4,
 
+	-- Show absolute line numbers in the gutter like VS Code. See :help 'number'
+	number = true,
+
+	-- Highlight the current line like VS Code. The 'CursorLine' and
+	-- 'CursorLineNr' highlight groups come from the vscode.nvim colorscheme.
+	-- See :help 'cursorline'
+	cursorline = true,
+
 	-- Show invisible characters (tabs, trailing whitespace, etc.) so real
 	-- tabs are visible. See :help 'list', :help 'listchars'
 	list = true,
