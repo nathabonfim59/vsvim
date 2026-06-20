@@ -462,6 +462,47 @@ function M.toggle()
 	MiniFiles.close()
 end
 
+-- Normalize a path by stripping trailing slashes so file and directory
+-- comparisons behave consistently.
+local function normalize_path(path)
+	return (path:gsub("/+$", ""))
+end
+
+-- Close all normal (`buftype = ""`) buffers associated with `path`.
+-- `path` may be a file or a directory; in the latter case every buffer under
+-- it is closed too. This mirrors VS Code's behaviour when a file is deleted or
+-- moved to trash from the explorer.
+local function close_deleted_buffers(path)
+	local target = normalize_path(path)
+	for _, buf_id in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_valid(buf_id) and vim.bo[buf_id].buftype == "" then
+			local name = normalize_path(vim.api.nvim_buf_get_name(buf_id))
+			if name == target or vim.startswith(name, target .. "/") then
+				pcall(vim.api.nvim_buf_delete, buf_id, { force = true })
+			end
+		end
+	end
+end
+
+-- Rename all normal buffers whose path starts with `from` so they point to the
+-- corresponding location under `to`. This acts as a fallback for `mini.files`'
+-- own buffer renaming, ensuring open files stay in sync after rename/move.
+local function rename_matching_buffers(from, to)
+	local from_prefix = normalize_path(from)
+	local to_prefix = normalize_path(to)
+	for _, buf_id in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_valid(buf_id) and vim.bo[buf_id].buftype == "" then
+			local name = normalize_path(vim.api.nvim_buf_get_name(buf_id))
+			if name == from_prefix then
+				pcall(vim.api.nvim_buf_set_name, buf_id, to_prefix)
+			elseif vim.startswith(name, from_prefix .. "/") then
+				local suffix = name:sub(#from_prefix + 2)
+				pcall(vim.api.nvim_buf_set_name, buf_id, to_prefix .. "/" .. suffix)
+			end
+		end
+	end
+end
+
 -- Open the sidebar at the given path (defaults to cwd).
 function M.open(path)
 	local ok, MiniFiles = pcall(require, "mini.files")
@@ -580,6 +621,36 @@ function M.setup(opts)
 		pattern = "MiniFilesWindowUpdate",
 		callback = function(args)
 			style_sidebar_window(args.data.win_id)
+		end,
+	})
+
+	-- Close normal buffers whose files were deleted from the filepicker.
+	-- `mini.files` already renames buffers on move/rename, but it leaves stale
+	-- buffers behind after delete (including trash moves).
+	vim.api.nvim_create_autocmd("User", {
+		group = group,
+		pattern = "MiniFilesActionDelete",
+		callback = function(args)
+			close_deleted_buffers(args.data.from)
+		end,
+	})
+
+	-- Fallback buffer rename for move/rename actions. `mini.files` performs its
+	-- own rename, but this ensures the buffer list stays consistent even if a
+	-- built-in edge case is missed.
+	vim.api.nvim_create_autocmd("User", {
+		group = group,
+		pattern = "MiniFilesActionRename",
+		callback = function(args)
+			rename_matching_buffers(args.data.from, args.data.to)
+		end,
+	})
+
+	vim.api.nvim_create_autocmd("User", {
+		group = group,
+		pattern = "MiniFilesActionMove",
+		callback = function(args)
+			rename_matching_buffers(args.data.from, args.data.to)
 		end,
 	})
 end
