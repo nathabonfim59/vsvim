@@ -1,0 +1,28 @@
+#!/bin/sh
+# vsvim — VS Code, but in Neovim.
+#
+# A thin wrapper around `nvim` that gives vsvim its OWN scope, fully isolated
+# from the user's regular Neovim config at ~/.config/nvim.
+#
+# It does this by setting $NVIM_APPNAME=vsvim (see :help $NVIM_APPNAME),
+# which makes Neovim read/write all of its standard directories under the
+# `vsvim` sub-directory instead of `nvim`:
+#
+#   config  ~/.config/vsvim         (instead of ~/.config/nvim)
+#   data    ~/.local/share/vsvim    (instead of ~/.local/share/nvim)
+#   cache   ~/.cache/vsvim          (instead of ~/.cache/nvim)
+#   state   ~/.local/state/vsvim    (instead of ~/.local/state/nvim)
+#
+# Neovim then finds init.lua / lua/ / plugin/ under ~/.config/vsvim/ exactly
+# as it normally would, so require(), runtimepath, and auto-sourced plugin/
+# files all work out of the box. That config dir is populated by install.sh
+# (it symlinks — or copies, in --copy mode — this repo's files into place).
+#
+# All arguments are forwarded to nvim unchanged.
+
+# Only set NVIM_APPNAME if the caller hasn't already overridden it. This lets
+# advanced users run e.g. `NVIM_APPNAME=vsvim-dev vsvim` for a throwaway scope.
+: "${NVIM_APPNAME:=vsvim}"
+export NVIM_APPNAME
+
+exec nvim "$@"
