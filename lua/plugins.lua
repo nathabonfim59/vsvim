@@ -3,7 +3,8 @@
 
 -- Install plugins:
 --   - mini.nvim: provides `mini.tabline` (the VS Code-style tab bar, see
---     lua/tabline.lua) and `mini.icons` (colored filetype icons).
+--     lua/tabline.lua), `mini.statusline` (the VS Code-style bottom bar,
+--     see lua/statusline.lua) and `mini.icons` (colored filetype icons).
 --     The library loads lazily per module, so adding the whole repo does
 --     not start anything until a module's setup() runs.
 --     https://github.com/nvim-mini/mini.nvim
@@ -26,9 +27,21 @@ vim.pack.add({
 vim.o.background = "dark"
 pcall(vim.cmd.colorscheme, "vscode")
 
+-- mini.icons: colored filetype icons used by mini.tabline and mini.statusline.
+require("mini.icons").setup()
+
+-- mini.git: provides git branch/status info consumed by mini.statusline's
+-- section_git() via `vim.b.minigit_summary_string`.
+require("mini.git").setup()
+
 -- VS Code-style tabline (listed buffers as tabs, colored icons, modified
 -- dot / close glyph, click-to-switch). Pure logic in lua/tabline.lua.
 require("tabline").setup()
+
+-- VS Code-style statusline (the solid blue bottom bar: git branch on the
+-- left, diagnostics + position + indent + encoding + language on the
+-- right). Pure logic in lua/statusline.lua; built on `mini.statusline`.
+require("statusline").setup()
 
 -- fff.nvim ships a prebuilt binary; build it on install.
 -- Triggered via the standard `PackChanged` event emitted by vim.pack.
