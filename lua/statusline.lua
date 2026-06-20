@@ -48,6 +48,14 @@ M.GLYPHS = {}
 -- (truncation, icon resolution, etc.) and only override the VS Code-specific
 -- bits (position format, indentation, EOL).
 
+-- Sidebar filepicker icon. Click to toggle the mini.files explorer
+-- (VS Code's Ctrl+B sidebar).
+function M.section_sidebar()
+	local icon = M.GLYPHS.sidebar
+	if not icon or icon == "" then return "" end
+	return "%@VsvimStatuslineSidebarClick@" .. icon .. "%X"
+end
+
 -- Git branch (plus the mini.git/gitsigns dirty summary if present).
 -- Empty when not in a repo, exactly like VS Code which hides the branch
 -- indicator outside a workspace.
@@ -160,6 +168,7 @@ function M.content_active()
 	local MiniStatusline = _G.MiniStatusline
 	local combine = MiniStatusline.combine_groups
 
+	local sidebar = M.section_sidebar()
 	local git = M.section_git()
 	local diff = M.section_diff()
 	local diagnostics = M.section_diagnostics()
@@ -172,7 +181,7 @@ function M.content_active()
 	-- A single highlight group wraps the whole bar (VsvimStatusline), so all
 	-- sections share VS Code's flat blue background and white foreground.
 	return combine({
-		{ hl = "VsvimStatusline", strings = { git, diff } },
+		{ hl = "VsvimStatusline", strings = { sidebar, git, diff } },
 		"%=",
 		{ hl = "VsvimStatusline", strings = { diagnostics, position, indent, eol, encoding, language } },
 	})
@@ -239,6 +248,16 @@ function M.set_highlights()
 	end
 end
 
+-- Toggle the sidebar filepicker from the statusline icon click region.
+local function sidebar_click_handler()
+	local ok, sidebar = pcall(require, "sidebar")
+	if ok then
+		sidebar.toggle()
+	else
+		vim.notify("statusline: 'sidebar' module not found", vim.log.levels.ERROR)
+	end
+end
+
 -- Open lazygit from the statusline git branch click region.
 local function git_click_handler()
 	local ok, tui = pcall(require, "tui")
@@ -259,18 +278,25 @@ function M.setup(opts)
 		return
 	end
 
+	-- Clicking the sidebar icon toggles the filepicker.
+	_G.vsvim_statusline_sidebar_click = sidebar_click_handler
 	-- Clicking the git branch indicator opens lazygit (if the tui module is available).
 	_G.vsvim_statusline_git_click = git_click_handler
 	vim.cmd([[
+		function! VsvimStatuslineSidebarClick(...) abort
+			call v:lua.vsvim_statusline_sidebar_click()
+		endfunction
 		function! VsvimStatuslineGitClick(...) abort
 			call v:lua.vsvim_statusline_git_click()
 		endfunction
 	]])
 
 	-- Branch: MiniIcons.get("filetype", "git") gives the theme-consistent git glyph.
+	-- Sidebar: a folder icon from the "directory" category.
 	local ok_icons, MiniIcons = pcall(require, "mini.icons")
 	if ok_icons then
 		M.GLYPHS.branch = MiniIcons.get("filetype", "git")
+		M.GLYPHS.sidebar = MiniIcons.get("directory", "folder")
 	end
 
 	-- Diagnostic signs: read from Neovim's own sign config (set by colorscheme /

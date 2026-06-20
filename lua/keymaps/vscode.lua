@@ -267,6 +267,14 @@ function M.apply()
 		end)
 	end)
 
+	-- Ctrl+B: toggle sidebar filepicker (VS Code's "toggle side bar" shortcut).
+	map("n", "<C-b>", function()
+		require("sidebar").toggle()
+	end, { desc = "Toggle sidebar filepicker" })
+	-- Insert mode must exit to normal mode first, otherwise switching windows
+	-- from the mapping can be unreliable.
+	map("i", "<C-b>", "<Esc><Cmd>lua require('sidebar').toggle()<CR>", { desc = "Toggle sidebar filepicker" })
+
 	-- Ctrl+`: toggle terminal (delegates to the Tui command from plugin/tui.lua)
 	map({ "n", "i" }, "<C-`>", function()
 		pcall(vim.cmd, "Tui")

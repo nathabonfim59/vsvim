@@ -51,7 +51,8 @@ editing it to `"preset": "vim"` / `"vsvim"`).
 
 - Sensible defaults via `lua/options.lua`
 - Plugin management with [`vim.pack`](https://neovim.io/doc/user/vim.pack.html) (no external plugin manager)
-- [fff.nvim](https://github.com/dmtrKovalenko/fff.nvim) — fuzzy finder (the one plugin)
+- [mini.files](https://github.com/nvim-mini/mini.nvim) — sidebar filepicker (Ctrl+B)
+- [fff.nvim](https://github.com/dmtrKovalenko/fff.nvim) — fuzzy finder
 - A small `tui` plugin providing a `:Tui` command and a `<leader>gg` lazygit keymap
 - A keybinding-preset system (`lua/presets/`) — pick vsvim or plain Vim maps
 
@@ -64,6 +65,7 @@ init.lua             # Entry point: sets leader, loads options + plugins + prese
 lua/options.lua      # General options
 lua/plugins.lua      # vim.pack plugin spec + config
 lua/presets/         # Keybinding presets (vsvim vs vim) + persistence
+lua/sidebar.lua      # VS Code-style sidebar filepicker (mini.files)
 lua/tui/init.lua     # TUI helper logic (lazygit)
 plugin/tui.lua       # Auto-sourced: registers :Tui command + keymap
 ```
@@ -76,12 +78,13 @@ live under `plugin/` (see `:help load-plugins`).
 Shown for the **vsvim** preset (the **vim** preset leaves Vim's defaults
 untouched and exposes `:FindFiles` / `:LiveGrep` / `:GrepWord` instead):
 
-| Key          | Action                |
-| ------------ | --------------------- |
-| `<leader>sf` | Search [F]iles        |
-| `<leader>sg` | Search [G]rep         |
-| `<leader>sw` | Search [W]ord         |
-| `<leader>gg` | Open lazygit (TUI)    |
+| Key          | Action                     |
+| ------------ | -------------------------- |
+| `<C-b>`      | Toggle sidebar filepicker  |
+| `<leader>sf` | Search [F]iles             |
+| `<leader>sg` | Search [G]rep              |
+| `<leader>sw` | Search [W]ord              |
+| `<leader>gg` | Open lazygit (TUI)         |
 
 ## License
 

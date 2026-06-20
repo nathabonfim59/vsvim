@@ -53,6 +53,10 @@ require("mini.comment").setup()
 -- "pmenu_accept" / "pmenu_prev" smart-Tab steps.
 require("mini.completion").setup()
 
+-- mini.files: VS Code-style sidebar filepicker. Toggle with Ctrl+B or click
+-- the folder icon in the statusline. Pure logic in lua/sidebar.lua.
+require("sidebar").setup()
+
 -- VS Code-style tabline (listed buffers as tabs, colored icons, modified
 -- dot / close glyph, click-to-switch). Pure logic in lua/tabline.lua.
 require("tabline").setup()
