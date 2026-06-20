@@ -63,6 +63,27 @@ local function get_buffer_dir(buf_id, MiniFiles)
 	return nil
 end
 
+-- Access `mini.files`' private helper table `H`. This is needed so we can
+-- register synthetic ".." entries in its path index, which prevents them from
+-- being treated as pending file-system changes.
+local function get_mini_files_helpers()
+	local ok, MiniFiles = pcall(require, "mini.files")
+	if not ok then
+		return nil
+	end
+	for _, fn in pairs(MiniFiles) do
+		if type(fn) == "function" then
+			for i = 1, debug.getinfo(fn, "u").nups do
+				local name, val = debug.getupvalue(fn, i)
+				if name == "H" then
+					return val
+				end
+			end
+		end
+	end
+	return nil
+end
+
 -- Insert a synthetic ".." entry at the top of a directory buffer so users can
 -- navigate up without reaching for the `h` key.
 local function add_parent_entry(buf_id, MiniFiles)
@@ -78,13 +99,28 @@ local function add_parent_entry(buf_id, MiniFiles)
 
 	-- Avoid adding a second ".." if the buffer was already modified.
 	local first_line = vim.api.nvim_buf_get_lines(buf_id, 0, 1, false)[1] or ""
-	if first_line:match("^/%d+/%.%.$") then
+	if first_line:match("^/%d+/*%.%.$") then
 		return
 	end
 
+	-- Register a synthetic path for the parent directory so mini.files treats the
+	-- ".." entry as already in sync (path_from == path_to) instead of a create.
+	local synthetic_path = dir_path .. "/.."
+	local path_id = 0
+	local H = get_mini_files_helpers()
+	if H and H.path_index then
+		path_id = H.path_index[synthetic_path]
+		if path_id == nil then
+			path_id = #H.path_index + 1
+			H.path_index[path_id] = synthetic_path
+			H.path_index[synthetic_path] = path_id
+		end
+	end
+
 	-- Insert at the top without replacing existing lines, so mini.files' highlight
-	-- extmarks are preserved and simply shift down by one row.
-	vim.api.nvim_buf_set_lines(buf_id, 0, 0, false, { "/0/.." })
+	-- extmarks are preserved and simply shift down by one row. The double slash
+	-- keeps `mini.files`' line parsing happy (it expects an icon separator).
+	vim.api.nvim_buf_set_lines(buf_id, 0, 0, false, { "/" .. path_id .. "//.." })
 
 	-- Color the synthetic ".." entry like a directory.
 	local ns = vim.api.nvim_create_namespace("vsvim-sidebar")
@@ -122,11 +158,140 @@ end
 -- "go to parent directory".
 local function go_in_or_up(MiniFiles)
 	local line = vim.fn.getline(".")
-	if line:match("^/%d+/%.%.$") then
+	if line:match("^/%d+/*%.%.$") then
 		MiniFiles.go_out()
 	else
 		MiniFiles.go_in()
 	end
+end
+
+-- Run `fn` while `vim.fn.confirm` is overridden to always return `result`.
+-- Restores the original function afterwards. Used to drive `mini.files'
+-- built-in confirmation prompts programmatically.
+local function with_confirm_result(result, fn)
+	local orig_confirm = vim.fn.confirm
+	vim.fn.confirm = function()
+		return result
+	end
+	local ok, res = pcall(fn)
+	vim.fn.confirm = orig_confirm
+	if not ok then
+		error(res)
+	end
+	return res
+end
+
+-- Probe `mini.files` for pending file system changes without applying them.
+-- Returns the human-readable change summary (the message `mini.files` would
+-- show in its own confirm dialog), or `nil` if there is nothing pending.
+local function get_pending_changes(MiniFiles)
+	local captured = nil
+	local orig_confirm = vim.fn.confirm
+	vim.fn.confirm = function(msg)
+		captured = msg
+		return 3 -- Cancel
+	end
+	pcall(MiniFiles.synchronize)
+	vim.fn.confirm = orig_confirm
+	return captured
+end
+
+-- Show a centered floating buffer describing pending changes and ask whether
+-- to apply them, discard them, or cancel the close operation.
+local function show_changes_popup(change_lines, on_apply, on_discard)
+	local buf_id = vim.api.nvim_create_buf(false, true)
+
+	local lines = {
+		"Pending file system changes",
+		"",
+	}
+	vim.list_extend(lines, change_lines)
+	vim.list_extend(lines, {
+		"",
+		"[y/Enter] Apply changes and close",
+		"[n]       Discard changes and close",
+		"[q/Esc]   Cancel and keep filepicker open",
+	})
+
+	vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
+
+	vim.bo[buf_id].buftype = "nofile"
+	vim.bo[buf_id].bufhidden = "wipe"
+	vim.bo[buf_id].swapfile = false
+	vim.bo[buf_id].modifiable = false
+	vim.bo[buf_id].filetype = "vsvim-sidebar-confirm"
+
+	local width = math.min(70, math.max(45, vim.o.columns - 12))
+	local height = math.min(#lines + 2, vim.o.lines - 6)
+	local row = math.floor((vim.o.lines - height) / 2)
+	local col = math.floor((vim.o.columns - width) / 2)
+
+	local win_id = vim.api.nvim_open_win(buf_id, true, {
+		relative = "editor",
+		row = row,
+		col = col,
+		width = width,
+		height = height,
+		style = "minimal",
+		border = "rounded",
+		title = " Confirm Changes ",
+		title_pos = "center",
+		zindex = 150,
+	})
+
+	local function close_popup()
+		if vim.api.nvim_win_is_valid(win_id) then
+			vim.api.nvim_win_close(win_id, true)
+		end
+	end
+
+	local opts = { buffer = buf_id, silent = true, nowait = true }
+
+	vim.keymap.set("n", "y", function()
+		close_popup()
+		on_apply()
+	end, vim.tbl_extend("force", opts, { desc = "Apply changes and close filepicker" }))
+
+	vim.keymap.set("n", "<CR>", function()
+		close_popup()
+		on_apply()
+	end, vim.tbl_extend("force", opts, { desc = "Apply changes and close filepicker" }))
+
+	vim.keymap.set("n", "n", function()
+		close_popup()
+		on_discard()
+	end, vim.tbl_extend("force", opts, { desc = "Discard changes and close filepicker" }))
+
+	vim.keymap.set("n", "q", close_popup, vim.tbl_extend("force", opts, { desc = "Cancel and keep filepicker open" }))
+	vim.keymap.set("n", "<Esc>", close_popup, vim.tbl_extend("force", opts, { desc = "Cancel and keep filepicker open" }))
+end
+
+-- Close the sidebar, but show a centered confirmation popup if there are
+-- pending file system changes (deletions, renames, moves, etc.).
+local function close_with_confirmation(MiniFiles)
+	local changes_msg = get_pending_changes(MiniFiles)
+
+	if changes_msg == nil then
+		MiniFiles.close()
+		return
+	end
+
+	local change_lines = vim.split(changes_msg, "\n", { plain = true })
+
+	local function apply_and_close()
+		with_confirm_result(1, function()
+			MiniFiles.synchronize()
+		end)
+		MiniFiles.close()
+	end
+
+	local function discard_and_close()
+		with_confirm_result(1, function()
+			MiniFiles.close()
+		end)
+	end
+
+	show_changes_popup(change_lines, apply_and_close, discard_and_close)
 end
 
 -- Toggle the sidebar filepicker.
@@ -139,14 +304,15 @@ function M.toggle()
 		return
 	end
 
-	-- `MiniFiles.close()` returns:
-	--   - `true`  -> closed successfully
-	--   - `false` -> user cancelled (pending edits)
-	--   - `nil`   -> nothing was open
-	local closed = MiniFiles.close()
-	if closed == nil then
+	-- If nothing is open, start a new explorer.
+	local state = MiniFiles.get_explorer_state()
+	if state == nil then
 		MiniFiles.open(vim.fn.getcwd(), false)
+		return
 	end
+
+	-- Close, showing a centered confirmation popup if there are pending changes.
+	close_with_confirmation(MiniFiles)
 end
 
 -- Open the sidebar at the given path (defaults to cwd).
@@ -214,6 +380,12 @@ function M.setup(opts)
 			vim.keymap.set("n", "<C-b>", function()
 				M.toggle()
 			end, { buffer = buf_id, desc = "Toggle sidebar filepicker", silent = true })
+
+			-- `q` closes the filepicker, with a confirmation popup if there are
+			-- pending file system changes.
+			vim.keymap.set("n", "q", function()
+				close_with_confirmation(mini_files)
+			end, { buffer = buf_id, desc = "Close sidebar filepicker", silent = true })
 
 			-- `l` opens/expands; on the synthetic ".." entry it goes up instead.
 			vim.keymap.set("n", "l", function()
