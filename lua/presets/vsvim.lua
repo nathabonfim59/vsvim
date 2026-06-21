@@ -91,7 +91,11 @@ local function close_current_buffer()
 		},
 		on_action = function(action)
 			if action == "save" then
-				local ok, err = pcall(vim.cmd, "write")
+				-- Write the specific buffer (cur), not just "current buffer",
+				-- in case focus changed after the modal closed.
+				local ok, err = pcall(vim.api.nvim_buf_call, cur, function()
+					vim.cmd("write")
+				end)
 				if not ok then
 					vim.notify("Close: " .. tostring(err), vim.log.levels.ERROR)
 					return
@@ -126,7 +130,7 @@ function M.apply()
 	-- This shadows Vim's <C-w> window-command prefix in normal mode; window
 	-- management is rarely needed in the single-window vsvim workflow. Insert
 	-- mode is left untouched so <C-w> (delete word) still works there.
-	vim.keymap.set("n", "<C-w>", close_current_buffer, { desc = "Close tab (VS Code Ctrl+W)" })
+	vim.keymap.set("n", "<C-w>", close_current_buffer, { desc = "Close tab (VS Code Ctrl+W)", nowait = true })
 	vim.keymap.set("n", "<leader>bd", close_current_buffer, { desc = "[B]uffer [D]elete (close tab)" })
 
 	-- Cycle editor tabs like VS Code's Ctrl+Tab / Ctrl+Shift+Tab.
