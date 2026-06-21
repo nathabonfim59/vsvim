@@ -46,6 +46,24 @@ function M.apply()
 	map("i", "<C-Left>",  "<C-o>b")
 	map("i", "<C-Right>", "<C-o>w")
 
+	-- Ctrl+K chord: focus split pane (VSCode style: Ctrl+K then arrow).
+	-- Both <C-K>{h,j,k,l} and <C-K>{arrows} move between windows.
+	local function focus(dir)
+		return function() vim.cmd("wincmd " .. dir) end
+	end
+	for _, pair in ipairs({
+		{ lhs = "h",  dir = "h" }, -- left
+		{ lhs = "l",  dir = "l" }, -- right
+		{ lhs = "k",  dir = "k" }, -- up
+		{ lhs = "j",  dir = "j" }, -- down
+		{ lhs = "<Left>",  dir = "h" },
+		{ lhs = "<Right>", dir = "l" },
+		{ lhs = "<Up>",    dir = "k" },
+		{ lhs = "<Down>",  dir = "j" },
+	}) do
+		map("n", "<C-k>" .. pair.lhs, focus(pair.dir), { desc = "Focus " .. pair.dir })
+	end
+
 	-- ── SELECTION ────────────────────────────────────────────────────────────
 	-- Strategy:
 	--   • normal  → enter charwise visual and extend
