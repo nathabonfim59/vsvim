@@ -69,6 +69,35 @@ Symlinks a `vsvim` launcher into `~/.local/bin` (or `/usr/local/bin` as root),
 so repo edits take effect immediately. Flags: `--copy` (frozen install),
 `--uninstall`, `--help`. Then run `vsvim` instead of `nvim`.
 
+### One-liner (from latest release)
+
+No git needed. Downloads the latest release tarball, extracts it, and runs
+the bundled `install.sh --copy`:
+
+```sh
+tmp=$(mktemp -d) && curl -fsSL https://github.com/nathabonfim59/vsvim/releases/latest/download/vsvim-latest.tar.gz | tar -xz -C "$tmp" && sh "$tmp"/vsvim-*/install.sh --copy && rm -rf "$tmp"
+```
+
+## Version and updates
+
+```sh
+vsvim --version     # print the installed version
+vsvim update        # check for and install a newer release
+```
+
+`vsvim update` behaves according to install mode:
+
+- **Symlink install** (default): runs `git pull --ff-only` in the repo and
+  refreshes the install links. No download, no version comparison.
+- **`--copy` install**: queries the latest GitHub release, compares the
+  remote version against the one baked into the launcher, and if newer
+  downloads the `vsvim-X.Y.Z.tar.gz` tarball, verifies its SHA256, and
+  reinstalls into the same prefix/bindir/configdir recorded at install time.
+
+Releases are cut by pushing a `vX.Y.Z` tag, which triggers
+[`.github/workflows/release.yml`](.github/workflows/release.yml) to build the
+tarball (with the version baked into `VERSION`) and publish a GitHub Release.
+
 ## Keybindings
 
 On first launch vsvim asks for a preset, saved to

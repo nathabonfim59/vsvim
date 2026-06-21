@@ -18,11 +18,278 @@
 # files all work out of the box. That config dir is populated by install.sh
 # (it symlinks, or copies, in --copy mode, this repo's files into place).
 #
-# All arguments are forwarded to nvim unchanged.
+# Subcommands:
+#   vsvim --version, -V   Print the installed version and exit.
+#   vsvim update          Check for a newer release and install it. In symlink
+#                         install mode this runs `git pull` in the repo and
+#                         refreshes the install links. In --copy mode it
+#                         downloads the latest GitHub release tarball and
+#                         reinstalls over the existing frozen tree.
+#   vsvim --help, -h      Show this help.
+#
+# All other arguments are forwarded to nvim unchanged.
+#
+# Version handling: the launcher reads its version from a VERSION file sitting
+# next to it (symlink mode: in the repo; --copy mode: baked in at install time
+# via the @@VSVIM_VERSION@@ marker below, see install.sh). The @@VSVIM_PREFIX@@
+# marker is likewise replaced by install.sh in --copy mode so `vsvim update`
+# knows where the frozen tree lives; it stays a no-op comment in symlink mode.
+
+# @@VSVIM_PREFIX@@
+: "${VSVIM_INSTALL_PREFIX:=}"
+# @@VSVIM_VERSION@@
+: "${VSVIM_VERSION_BAKED:=}"
+
+# GitHub owner/name used for update checks. Overridable by the caller.
+: "${VSVIM_REPO:=nathabonfim59/vsvim}"
 
 # Only set NVIM_APPNAME if the caller hasn't already overridden it. This lets
 # advanced users run e.g. `NVIM_APPNAME=vsvim-dev vsvim` for a throwaway scope.
 : "${NVIM_APPNAME:=vsvim}"
 export NVIM_APPNAME
+
+# ---------------------------------------------------------------------------
+# Resolve the real path of this launcher, following symlinks so the version
+# file and (in symlink mode) the repo root can be located reliably.
+# ---------------------------------------------------------------------------
+prog="$0"
+while [ -h "$prog" ]; do
+	prog_dir="$(cd "$(dirname "$prog")" && pwd)"
+	prog="$(readlink "$prog")"
+	case "$prog" in
+		/*) : ;;
+		*) prog="$prog_dir/$prog" ;;
+	esac
+done
+SELF_DIR="$(cd "$(dirname "$prog")" && pwd)"
+
+# ---------------------------------------------------------------------------
+# Version resolution: baked-in value wins (copy mode), else read VERSION next
+# to the launcher (symlink mode), else "unknown".
+# ---------------------------------------------------------------------------
+if [ -n "$VSVIM_VERSION_BAKED" ]; then
+	VSVIM_VERSION="$VSVIM_VERSION_BAKED"
+elif [ -f "$SELF_DIR/VERSION" ]; then
+	VSVIM_VERSION="$(cat "$SELF_DIR/VERSION" 2>/dev/null)"
+else
+	VSVIM_VERSION="unknown"
+fi
+[ -n "$VSVIM_VERSION" ] || VSVIM_VERSION="unknown"
+
+# ---------------------------------------------------------------------------
+# Semver helpers (X.Y.Z only; pre-release suffixes are stripped). Used by the
+# copy-mode update path to decide whether the remote release is newer.
+# ---------------------------------------------------------------------------
+# semver_num: echo the X.Y.Z core of "vX.Y.Z[-pre][+build]".
+semver_num() {
+	v="${1#v}"
+	v="${v%%-*}"
+	v="${v%%+*}"
+	echo "$v"
+}
+
+# semver_ge: return 0 if $1 >= $2, else 1.
+semver_ge() {
+	a="$(semver_num "$1")"; b="$(semver_num "$2")"
+	# Split on '.' into three numeric fields (default missing fields to 0).
+	a1="${a%%.*}"; r="${a#*.}"; [ "$r" = "$a" ] && r="0.0"
+	a2="${r%%.*}"; a3="${r#*.}"; [ "$a3" = "$r" ] && a3=0
+	b1="${b%%.*}"; r="${b#*.}"; [ "$r" = "$b" ] && r="0.0"
+	b2="${r%%.*}"; b3="${r#*.}"; [ "$b3" = "$r" ] && b3=0
+	[ "$a1" -gt "$b1" ] 2>/dev/null && return 0
+	[ "$a1" -lt "$b1" ] 2>/dev/null && return 1
+	[ "$a2" -gt "$b2" ] 2>/dev/null && return 0
+	[ "$a2" -lt "$b2" ] 2>/dev/null && return 1
+	[ "$a3" -gt "$b3" ] 2>/dev/null && return 0
+	[ "$a3" -lt "$b3" ] 2>/dev/null && return 1
+	return 0
+}
+
+usage() {
+	cat <<'EOF'
+vsvim: VS Code, but in Neovim.
+
+Usage:
+  vsvim [nvim args...]     Launch vsvim (args forwarded to nvim)
+  vsvim --version, -V      Print installed version and exit
+  vsvim update             Check for and install a newer release
+  vsvim --help, -h         Show this help
+
+Environment:
+  NVIM_APPNAME             Neovim scope (default: vsvim)
+  VSVIM_REPO               owner/name for update checks
+                           (default: nathabonfim59/vsvim)
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# vsvim update
+# ---------------------------------------------------------------------------
+do_update() {
+	if [ -n "$VSVIM_INSTALL_PREFIX" ]; then
+		update_copy
+	else
+		update_symlink
+	fi
+}
+
+# update_symlink: the launcher is a symlink into a git checkout. Pull the
+# current branch (ff-only) and re-run install.sh to refresh the links.
+update_symlink() {
+	REPO="$SELF_DIR"
+	if [ ! -d "$REPO/.git" ] && [ ! -f "$REPO/.git" ]; then
+		echo "vsvim update: $REPO is not a git checkout; cannot update a symlink install." >&2
+		echo "  Reinstall with install.sh, or clone the repo and re-run install.sh." >&2
+		return 1
+	fi
+	branch="$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+	if [ -z "$branch" ] || [ "$branch" = "HEAD" ]; then
+		echo "vsvim update: detached HEAD in $REPO; update manually with git." >&2
+		return 1
+	fi
+	echo "vsvim update: fetching origin ($branch)..."
+	if ! git -C "$REPO" fetch --quiet origin "$branch" 2>/dev/null; then
+		git -C "$REPO" fetch --quiet origin || {
+			echo "vsvim update: git fetch failed." >&2
+			return 1
+		}
+	fi
+	local_head="$(git -C "$REPO" rev-parse HEAD 2>/dev/null)"
+	remote_head="$(git -C "$REPO" rev-parse "origin/$branch" 2>/dev/null || true)"
+	if [ -z "$remote_head" ]; then
+		echo "vsvim update: could not resolve origin/$branch." >&2
+		return 1
+	fi
+	if [ "$local_head" = "$remote_head" ]; then
+		echo "vsvim update: already up to date ($branch @ $(echo "$local_head" | cut -c1-12))."
+		return 0
+	fi
+	echo "vsvim update: pulling $branch..."
+	if ! git -C "$REPO" pull --ff-only --quiet origin "$branch"; then
+		echo "vsvim update: git pull failed; resolve locally in $REPO." >&2
+		return 1
+	fi
+	if [ -f "$REPO/install.sh" ]; then
+		echo "vsvim update: refreshing install links..."
+		sh "$REPO/install.sh" --quiet >/dev/null 2>&1 || sh "$REPO/install.sh" >/dev/null 2>&1 || true
+	fi
+	new_ref="$(git -C "$REPO" describe --tags --always 2>/dev/null || git -C "$REPO" rev-parse --short HEAD 2>/dev/null)"
+	echo "vsvim update: updated to $new_ref."
+}
+
+# update_copy: the launcher is a frozen copy. Download the latest release
+# tarball, verify its checksum, extract, and re-run install.sh --copy into the
+# existing prefix/bindir/configdir recorded at install time.
+update_copy() {
+	PREFIX="$VSVIM_INSTALL_PREFIX"
+	if [ ! -d "$PREFIX" ]; then
+		echo "vsvim update: install prefix $PREFIX is missing; reinstall with install.sh." >&2
+		return 1
+	fi
+	META="$PREFIX/.vsvim-meta"
+	BINDIR=""; CONFIGDIR=""
+	if [ -f "$META" ]; then
+		# shellcheck source=/dev/null
+		. "$META"
+	fi
+	[ -n "$BINDIR" ]    || BINDIR="$HOME/.local/bin"
+	[ -n "$CONFIGDIR" ] || CONFIGDIR="$HOME/.config/vsvim"
+
+	api="https://api.github.com/repos/$VSVIM_REPO/releases/latest"
+	echo "vsvim update: checking latest release from $VSVIM_REPO..."
+	rel="$(curl -fsSL "$api" 2>/dev/null)" || {
+		echo "vsvim update: failed to fetch release info from $api." >&2
+		return 1
+	}
+	remote_ver="$(printf '%s\n' "$rel" \
+		| sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\{0,1\}\([^"]*\)".*/\1/p' \
+		| head -1)"
+	if [ -z "$remote_ver" ]; then
+		echo "vsvim update: could not parse latest release tag." >&2
+		return 1
+	fi
+	local_ver="$VSVIM_VERSION"
+	if semver_ge "$local_ver" "$remote_ver"; then
+		echo "vsvim update: already up to date ($local_ver)."
+		return 0
+	fi
+	echo "vsvim update: $local_ver -> $remote_ver"
+
+	tarball_name="vsvim-$remote_ver.tar.gz"
+	sha_name="$tarball_name.sha256"
+	tarball_url="$(printf '%s\n' "$rel" \
+		| sed -n "s/.*\"browser_download_url\"[[:space:]]*:[[:space:]]*\"\([^\"]*${tarball_name}\)\".*/\1/p" \
+		| head -1)"
+	if [ -z "$tarball_url" ]; then
+		echo "vsvim update: asset $tarball_name not found in latest release." >&2
+		return 1
+	fi
+	sha_url="$(printf '%s\n' "$rel" \
+		| sed -n "s/.*\"browser_download_url\"[[:space:]]*:[[:space:]]*\"\([^\"]*${sha_name}\)\".*/\1/p" \
+		| head -1)"
+
+	tmp="$(mktemp -d 2>/dev/null || mktemp -d -t vsvim)"
+	trap 'rm -rf -- "$tmp"' EXIT INT TERM HUP
+
+	echo "vsvim update: downloading $tarball_name..."
+	if ! curl -fsSL -o "$tmp/$tarball_name" "$tarball_url"; then
+		echo "vsvim update: download failed." >&2
+		return 1
+	fi
+	if [ -n "$sha_url" ]; then
+		curl -fsSL -o "$tmp/$sha_name" "$sha_url" 2>/dev/null || true
+	fi
+	if [ -f "$tmp/$sha_name" ]; then
+		# Prefer sha256sum, fall back to macOS shasum.
+		if ( cd "$tmp" && sha256sum -c "$sha_name" >/dev/null 2>&1 ) \
+			|| ( cd "$tmp" && shasum -a 256 -c "$sha_name" >/dev/null 2>&1 ); then
+			:
+		else
+			echo "vsvim update: checksum verification failed for $tarball_name." >&2
+			return 1
+		fi
+	fi
+
+	echo "vsvim update: extracting..."
+	mkdir -p "$tmp/src"
+	if ! tar -xzf "$tmp/$tarball_name" -C "$tmp/src"; then
+		echo "vsvim update: extraction failed." >&2
+		return 1
+	fi
+	src_dir="$(ls -d "$tmp/src"/*/ 2>/dev/null | head -1)"
+	[ -n "$src_dir" ] || src_dir="$tmp/src"
+	src_dir="${src_dir%/}"
+
+	if [ ! -f "$src_dir/install.sh" ]; then
+		echo "vsvim update: extracted tarball has no install.sh." >&2
+		return 1
+	fi
+	echo "vsvim update: reinstalling into $PREFIX..."
+	if ! sh "$src_dir/install.sh" --copy --quiet \
+			--prefix="$PREFIX" --bindir="$BINDIR" --configdir="$CONFIGDIR"; then
+		echo "vsvim update: reinstall failed." >&2
+		return 1
+	fi
+	echo "vsvim update: updated to $remote_ver."
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand dispatch
+# ---------------------------------------------------------------------------
+case "${1:-}" in
+	--version|-V)
+		echo "vsvim $VSVIM_VERSION"
+		exit 0
+		;;
+	--help|-h)
+		usage
+		exit 0
+		;;
+	update)
+		shift
+		do_update
+		exit $?
+		;;
+esac
 
 exec nvim "$@"

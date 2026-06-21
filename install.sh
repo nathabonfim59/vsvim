@@ -25,6 +25,8 @@
 #   ./install.sh --configdir=DIR # override vsvim config dir
 #   ./install.sh --uninstall     # remove everything this script creates
 #   ./install.sh --dry-run       # show what would happen, change nothing
+#   ./install.sh --quiet         # suppress informational output (used by
+#                                # `vsvim update` when re-running install.sh)
 #
 # Environment overrides:
 #   BINDIR, CONFIGDIR, PREFIX   (same-named flags win)
@@ -89,6 +91,7 @@ DEFAULT_CONFIGDIR="$EFFECTIVE_XDG_CONFIG/vsvim"
 COPY=0
 UNINSTALL=0
 DRY_RUN=0
+QUIET=0
 BINDIR="${BINDIR:-}"
 CONFIGDIR="${CONFIGDIR:-}"
 PREFIX="${PREFIX:-}"
@@ -103,6 +106,7 @@ while [ $# -gt 0 ]; do
 		--copy)         COPY=1 ;;
 		--uninstall)    UNINSTALL=1 ;;
 		--dry-run)      DRY_RUN=1 ;;
+		--quiet)        QUIET=1 ;;
 		--prefix=*)     PREFIX="${arg#*=}" ;;
 		--prefix)       shift; PREFIX="${1:?--prefix needs a value}" ;;
 		--bindir=*)     BINDIR="${arg#*=}" ;;
@@ -134,7 +138,8 @@ run() {
 		"$@"
 	fi
 }
-note()  { printf '  %s\n' "$*"; }
+note()  { [ "$QUIET" = 1 ] || printf '  %s\n' "$*"; }
+log()   { [ "$QUIET" = 1 ] || printf '%s\n' "$*"; }
 exists() { [ -e "$1" ] || [ -L "$1" ]; }
 
 remove_path() {
@@ -161,11 +166,11 @@ link_or_copy() {
 # Uninstall
 # ---------------------------------------------------------------------------
 if [ "$UNINSTALL" = 1 ]; then
-	echo "Uninstalling vsvim:"
-	echo "  launcher: $DEST"
+	log "Uninstalling vsvim:"
+	log "  launcher: $DEST"
 	if remove_path "$DEST"; then note "removed"; else note "not present, skipping"; fi
 
-	echo "  config:   $CONFIGDIR"
+	log "  config:   $CONFIGDIR"
 	# Config dir is shared user state; only remove the bits we own, and only
 	# if they're our symlinks (symlink mode). A real/copied config dir may hold
 	# the user's keybindings.json, so leave it unless --copy was also passed.
@@ -193,7 +198,7 @@ if [ "$UNINSTALL" = 1 ]; then
 	fi
 
 	if [ "$COPY" = 1 ]; then
-		echo "  tree:     $PREFIX"
+		log "  tree:     $PREFIX"
 		if remove_path "$PREFIX"; then note "removed"; else note "not present, skipping"; fi
 	fi
 	exit 0
@@ -202,21 +207,21 @@ fi
 # ---------------------------------------------------------------------------
 # Install
 # ---------------------------------------------------------------------------
-echo "Installing vsvim:"
-echo "  repo:     $REPO"
-echo "  bindir:   $BINDIR"
-echo "  config:   $CONFIGDIR"
-echo "  mode:     $( [ "$COPY" = 1 ] && echo copy || echo symlink )"
+log "Installing vsvim:"
+log "  repo:     $REPO"
+log "  bindir:   $BINDIR"
+log "  config:   $CONFIGDIR"
+log "  mode:     $( [ "$COPY" = 1 ] && echo copy || echo symlink )"
 
 # Source root: where the real files live. In copy mode we first clone the tree
 # into $PREFIX and use that as the source for everything else.
 if [ "$COPY" = 1 ]; then
-	echo "  tree:     $PREFIX"
+	log "  tree:     $PREFIX"
 	if exists "$PREFIX" && [ "$PREFIX" != "/" ]; then
 		run rm -rf -- "$PREFIX"
 	fi
 	run mkdir -p -- "$PREFIX"
-	for item in $RUNTIME_ITEMS vsvim LICENSE README.md; do
+	for item in $RUNTIME_ITEMS vsvim LICENSE README.md VERSION; do
 		if [ -e "$REPO/$item" ]; then
 			run cp -R -- "$REPO/$item" "$PREFIX/"
 		fi
@@ -238,6 +243,26 @@ if exists "$DEST"; then
 fi
 link_or_copy "$SRCDIR/vsvim" "$DEST"
 if [ "$DRY_RUN" != 1 ]; then
+	chmod +x "$DEST" 2>/dev/null || true
+fi
+
+# 1b) In --copy mode the launcher is a standalone file (not a symlink into the
+#     repo), so bake the install prefix and version into it by replacing the
+#     @@VSVIM_*@@ marker comments. This lets `vsvim --version` and
+#     `vsvim update` work without the repo or a VERSION file next to the
+#     launcher. Symlink mode leaves the markers as no-op comments and the
+#     launcher reads VERSION from the repo at runtime.
+if [ "$COPY" = 1 ] && [ "$DRY_RUN" != 1 ]; then
+	inst_version="$(cat "$PREFIX/VERSION" 2>/dev/null || echo unknown)"
+	[ -n "$inst_version" ] || inst_version="unknown"
+	# Escape characters that are special in a sed replacement: \, &, and our
+	# delimiter |. Paths rarely contain |, but escape it for safety.
+	pfx_esc="$(printf '%s' "$PREFIX" | sed 's/[\\&|]/\\&/g')"
+	ver_esc="$(printf '%s' "$inst_version" | sed 's/[\\&|]/\\&/g')"
+	sed \
+		-e "s|^# @@VSVIM_PREFIX@@$|VSVIM_INSTALL_PREFIX=\"$pfx_esc\"|" \
+		-e "s|^# @@VSVIM_VERSION@@$|VSVIM_VERSION_BAKED=\"$ver_esc\"|" \
+		"$DEST" > "$DEST.tmp" && mv -f "$DEST.tmp" "$DEST"
 	chmod +x "$DEST" 2>/dev/null || true
 fi
 
@@ -264,11 +289,26 @@ for item in $RUNTIME_ITEMS; do
 	fi
 done
 
-echo
+# 3) Record install metadata so `vsvim update` can reinstall with the same
+#    paths. Written into the source root ($PREFIX in copy mode, $REPO in
+#    symlink mode) as a shell-sourceable file.
+if [ "$DRY_RUN" != 1 ]; then
+	meta_version="$(cat "$SRCDIR/VERSION" 2>/dev/null || echo unknown)"
+	meta_mode="$( [ "$COPY" = 1 ] && echo copy || echo symlink )"
+	{
+		echo "MODE=$meta_mode"
+		echo "PREFIX=$SRCDIR"
+		echo "BINDIR=$BINDIR"
+		echo "CONFIGDIR=$CONFIGDIR"
+		echo "VERSION=$meta_version"
+	} > "$SRCDIR/.vsvim-meta"
+fi
+
+log
 if [ "$DRY_RUN" = 1 ]; then
-	echo "(dry run, nothing was changed)"
+	log "(dry run, nothing was changed)"
 else
-	echo "Done. Installed: $DEST"
+	log "Done. Installed: $DEST"
 fi
 
 # ---------------------------------------------------------------------------
@@ -279,9 +319,9 @@ case ":$PATH:" in
 		note "$BINDIR is already on your PATH."
 		;;
 	*)
-		echo
-		echo "NOTE: $BINDIR is not on your PATH."
-		echo "  Add this to your shell rc (e.g. ~/.bashrc, ~/.zshrc):"
-		echo "    export PATH=\"$BINDIR:\$PATH\""
+		log
+		log "NOTE: $BINDIR is not on your PATH."
+		log "  Add this to your shell rc (e.g. ~/.bashrc, ~/.zshrc):"
+		log "    export PATH=\"$BINDIR:\$PATH\""
 		;;
 esac

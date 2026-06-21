@@ -1,0 +1,6 @@
+# Local install metadata written by install.sh (symlink mode leaves this in
+# the repo checkout; copy mode keeps it inside the prefix tree).
+/.vsvim-meta
+
+# Release tarball staging area used by .github/workflows/release.yml.
+/dist/

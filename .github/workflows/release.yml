@@ -1,0 +1,62 @@
+name: release
+
+# Build a self-contained release tarball whenever a `vX.Y.Z` tag is pushed.
+# The tarball has the real version baked into its VERSION file (the repo's
+# VERSION stays `0.0.0-dev` on main), plus a SHA256 sidecar so `vsvim update`
+# can verify the download. The release is created with `gh release create`
+# using the auto-generated release notes.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version from tag
+        id: ver
+        run: |
+          tag="${GITHUB_REF_NAME}"     # e.g. v0.1.0
+          ver="${tag#v}"               # 0.1.0
+          echo "tag=$tag"     >> "$GITHUB_OUTPUT"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Bake version into VERSION
+        run: printf '%s\n' '${{ steps.ver.outputs.version }}' > VERSION
+
+      - name: Build tarball and checksum
+        run: |
+          ver="${{ steps.ver.outputs.version }}"
+          name="vsvim-$ver"
+          mkdir -p "dist/$name"
+          # Stage a clean tree: everything except .git, .github, and dist.
+          tar --exclude='./.git' --exclude='./.github' --exclude='./dist' \
+              -cf - . | tar -xf - -C "dist/$name"
+          ( cd dist && tar -czf "$name.tar.gz" "$name" )
+          ( cd dist && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256" )
+          # Stable-named copy so the curl install one-liner can use a fixed URL
+          # via /releases/latest/download/vsvim-latest.tar.gz.
+          cp "dist/$name.tar.gz" "dist/vsvim-latest.tar.gz"
+          ( cd dist && sha256sum "vsvim-latest.tar.gz" > "vsvim-latest.tar.gz.sha256" )
+          ls -l dist
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          ver="${{ steps.ver.outputs.version }}"
+          gh release create "$tag" \
+            --title "vsvim $ver" \
+            --generate-notes \
+            "dist/vsvim-$ver.tar.gz" \
+            "dist/vsvim-$ver.tar.gz.sha256" \
+            "dist/vsvim-latest.tar.gz" \
+            "dist/vsvim-latest.tar.gz.sha256"
