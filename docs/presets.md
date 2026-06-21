@@ -1,11 +1,11 @@
 # Keybinding presets
 
 Sources:
-- [`lua/presets/init.lua`](../lua/presets/init.lua) — orchestrator
-- [`lua/presets/config.lua`](../lua/presets/config.lua) — preset table + persistence
-- [`lua/presets/vsvim.lua`](../lua/presets/vsvim.lua) — the vsvim preset
-- [`lua/presets/vim.lua`](../lua/presets/vim.lua) — the vim preset
-- [`lua/keymaps/vscode.lua`](../lua/keymaps/vscode.lua) — VS Code editing shortcuts (used by vsvim)
+- [`lua/presets/init.lua`](../lua/presets/init.lua): orchestrator
+- [`lua/presets/config.lua`](../lua/presets/config.lua): preset table + persistence
+- [`lua/presets/vsvim.lua`](../lua/presets/vsvim.lua): the vsvim preset
+- [`lua/presets/vim.lua`](../lua/presets/vim.lua): the vim preset
+- [`lua/keymaps/vscode.lua`](../lua/keymaps/vscode.lua): VS Code editing shortcuts (used by vsvim)
 
 vsvim ships two keybinding presets. On first launch the user is prompted
 to pick one; the choice is persisted to
@@ -54,14 +54,14 @@ echo '{"preset":"vim"}' > ~/.config/vsvim/keybindings.json
    [navigation.md](navigation.md) for the table). This must run after
    `plugins.lua` so `mini.pairs` / `mini.comment` are available.
 2. Registers the fff.nvim fuzzy-finder keymaps:
-   - `<leader>sf` — search files
-   - `<leader>sg` — live grep
-   - `<leader>sw` — grep word under cursor
+   - `<leader>sf`: search files
+   - `<leader>sg`: live grep
+   - `<leader>sw`: grep word under cursor
 3. Registers buffer / tab management:
-   - `<C-w>` — close current editor tab (VS Code style), with a
+   - `<C-w>`: close current editor tab (VS Code style), with a
      Save / Discard / Cancel modal if the buffer has unsaved changes
-   - `<leader>bd` — alias for close
-   - `<leader>bn` / `<leader>bp` — next / previous editor tab
+   - `<leader>bd`: alias for close
+   - `<leader>bn` / `<leader>bp`: next / previous editor tab
 
 `<C-w>` shadows Vim's window-command prefix in normal mode (it uses
 `nowait = true`); insert mode is left untouched so `<C-w>` (delete word)
@@ -72,19 +72,19 @@ still works there.
 The close-current-buffer logic shows a centered modal (built on the
 reusable [`modal`](modal.md) module) when the buffer is modified:
 
-- **Save** (green, `DiffAdd`) — write the buffer, then close.
-- **Discard** (red, `DiffDelete`) — close without writing.
-- **Cancel** (gray, `PmenuSbar`) — keep the buffer open.
+- **Save** (green, `DiffAdd`): write the buffer, then close.
+- **Discard** (red, `DiffDelete`): close without writing.
+- **Cancel** (gray, `PmenuSbar`): keep the buffer open.
 
 Keyboard shortcuts: `y` (save), `n` (discard), `q` / `<Esc>` / `<C-c>`
 (cancel). The modal opens with `focus = false` so the current buffer
-keeps focus and `BufLeave` / `WinLeave` don't fire — this prevents
+keeps focus and `BufLeave` / `WinLeave` don't fire, this prevents
 autowrite or other leave-triggered autocmds from silently saving or
 closing the buffer before the user decides.
 
 ## The vim preset
 
-`presets/vim.lua`'s `apply()` registers **no keymaps** — it leaves
+`presets/vim.lua`'s `apply()` registers **no keymaps**, it leaves
 Vim's defaults untouched. It does expose a few user commands so the
 fuzzy finder and tab management stay reachable without leader keys:
 
@@ -104,7 +104,7 @@ fuzzy finder and tab management stay reachable without leader keys:
 M.PRESETS = {
   { name = "vsvim", desc = "..." },
   { name = "vim",   desc = "..." },
-  { name = "my",    desc = "my — my custom keymaps" },
+  { name = "my",    desc = "my: my custom keymaps" },
 }
 ```
 

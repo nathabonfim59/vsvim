@@ -81,7 +81,7 @@ end
 ---   backdrop_hl   string        Backdrop highlight group (default "NormalFloat").
 ---   noautocmd     boolean       Pass noautocmd=true to nvim_open_win (default false).
 ---   focus         boolean       Steal focus to the modal window (default true).
----                 When false, the float opens without entering it — the
+---                 When false, the float opens without entering it, the
 ---                 current buffer keeps focus, no BufLeave/WinLeave fires,
 ---                 and keymaps are set on the current buffer instead of the
 ---                 modal buffer. Useful when the caller's buffer has unsaved
@@ -418,7 +418,7 @@ function M.open(opts)
 	-- Auto-close:
 	--   Focus mode: close when the modal buffer is left (WinLeave/BufLeave).
 	--   Non-focus mode: close when the original buffer is left (the float is
-	--   not focused, so its BufLeave never fires — we watch the original buf).
+	--   not focused, so its BufLeave never fires, we watch the original buf).
 	if focus then
 		vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
 			group = augroup,

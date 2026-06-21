@@ -9,7 +9,7 @@ indicator, click-to-switch.
 
 ## Features
 
-- **One tab per listed buffer** — `mini.tabline`'s default behaviour,
+- **One tab per listed buffer**: `mini.tabline`'s default behaviour,
   kept as-is.
 - **Colored filetype icon** resolved per-buffer via
     [`mini.icons`](https://github.com/nvim-mini/mini.nvim/blob/main/doc/mini-icons.txt)
@@ -21,10 +21,10 @@ indicator, click-to-switch.
   (`vsvim-modified` / `vsvim-close`), registered in
   [`lua/plugins.lua`](../lua/plugins.lua), so users can override them
   through the standard `mini.icons` config.
-- **Click-to-switch** — provided by `mini.tabline`'s
+- **Click-to-switch**: provided by `mini.tabline`'s
   `%N@MiniTablineSwitchBuffer@` wrapper; clicking a tab switches to that
   buffer, just like clicking a VS Code tab.
-- **Active tab highlight** — the active tab gets a distinct, brighter
+- **Active tab highlight**: the active tab gets a distinct, brighter
   background and bold filename so it reads as "selected".
 
 ## Layout
@@ -46,7 +46,7 @@ hard-coded. `set_highlights()` pulls VS Code's exact tab palette from the
 live `TabLineSel` / `TabLine` / `TabLineFill` groups that `vscode.nvim`
 populates (`vscTabCurrent` / `vscTabOther` / `vscTabOutside`), and tints
 the modified indicator from the theme's git / diagnostic colors
-(`GitSignsChange` / `DiagnosticWarn`) — the same approach `barbar.nvim`
+(`GitSignsChange` / `DiagnosticWarn`), the same approach `barbar.nvim`
 uses for its `Buffer*` groups.
 
 The highlights are re-applied on every `ColorScheme` event so they

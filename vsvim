@@ -1,5 +1,5 @@
 #!/bin/sh
-# vsvim — VS Code, but in Neovim.
+# vsvim: VS Code, but in Neovim.
 #
 # A thin wrapper around `nvim` that gives vsvim its OWN scope, fully isolated
 # from the user's regular Neovim config at ~/.config/nvim.
@@ -16,7 +16,7 @@
 # Neovim then finds init.lua / lua/ / plugin/ under ~/.config/vsvim/ exactly
 # as it normally would, so require(), runtimepath, and auto-sourced plugin/
 # files all work out of the box. That config dir is populated by install.sh
-# (it symlinks — or copies, in --copy mode — this repo's files into place).
+# (it symlinks, or copies, in --copy mode, this repo's files into place).
 #
 # All arguments are forwarded to nvim unchanged.
 

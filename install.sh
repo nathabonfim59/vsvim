@@ -1,5 +1,5 @@
 #!/bin/sh
-# install.sh — install the `vsvim` launcher onto $PATH and wire up vsvim's
+# install.sh: install the `vsvim` launcher onto $PATH and wire up vsvim's
 # isolated Neovim config scope.
 #
 # vsvim gets its OWN Neovim scope via $NVIM_APPNAME=vsvim (see :help
@@ -266,7 +266,7 @@ done
 
 echo
 if [ "$DRY_RUN" = 1 ]; then
-	echo "(dry run — nothing was changed)"
+	echo "(dry run, nothing was changed)"
 else
 	echo "Done. Installed: $DEST"
 fi

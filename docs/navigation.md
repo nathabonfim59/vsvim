@@ -97,7 +97,7 @@ In normal / visual mode, `<Tab>` / `<S-Tab>` indent / dedent lines
 
 `mini.completion` shows the popup with nothing selected initially; the
 custom Tab step selects the first candidate (`<C-n>`) and immediately
-confirms it (`<C-y>`), so a single Tab press accepts — matching VS Code.
+confirms it (`<C-y>`), so a single Tab press accepts, matching VS Code.
 
 ## Comments (mini.comment)
 

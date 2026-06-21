@@ -107,7 +107,7 @@ local function close_current_buffer()
 			elseif action == "discard" then
 				switch_and_delete(cur, true)
 			end
-			-- "cancel" is a no-op — buffer stays open, nothing is written.
+			-- "cancel" is a no-op, buffer stays open, nothing is written.
 		end,
 	})
 end

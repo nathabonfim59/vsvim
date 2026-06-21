@@ -13,13 +13,13 @@ it reads as a docked sidebar rather than a centered popup.
 
 ## Features
 
-- **Docked-left layout** — full editor height, single border, 32-column
+- **Docked-left layout**: full editor height, single border, 32-column
   width, pinned below the tabline and above the statusline.
 - **Synthetic `..` entry** at the top of every directory listing, so you
   can navigate up by pressing `l` / `Enter` / clicking on it (instead of
   reaching for `h`). The entry is registered in `mini.files`' private
   path index so it isn't treated as a pending filesystem create.
-- **Single-click open** — clicking an entry expands a directory or opens
+- **Single-click open**: clicking an entry expands a directory or opens
   a file, matching VS Code's explorer. (`mini.files` defaults to
   double-click.)
 - **Left padding** on every line so content isn't flush against the
@@ -29,7 +29,7 @@ it reads as a docked sidebar rather than a centered popup.
   discarding; vsvim shows a Save / Discard / Cancel modal built on the
   reusable [`modal`](modal.md) module instead of `mini.files`' built-in
   command-line `confirm()` dialog.
-- **Buffer cleanup** — when a file is deleted / moved to trash from the
+- **Buffer cleanup**: when a file is deleted / moved to trash from the
   sidebar, any open buffer for that file is closed. When a file is
   renamed or moved, open buffers are renamed to follow it (a fallback for
   `mini.files`' own rename logic).
@@ -66,7 +66,7 @@ require("sidebar").close()       -- close if open
 
 `setup(opts)` merges `opts` into the `mini.files` config (windows,
 mappings, ...) and patches `MiniFiles.close()` so every close path goes
-through the centered confirmation popup. It is idempotent — calling it
+through the centered confirmation popup. It is idempotent, calling it
 more than once will not re-patch `MiniFiles.close()`.
 
 ## Confirmation modal
@@ -74,9 +74,9 @@ more than once will not re-patch `MiniFiles.close()`.
 When you close the sidebar with pending filesystem changes, a centered
 modal is shown listing the changes with three buttons:
 
-- **Save** (green, `DiffAdd`) — apply the changes and close.
-- **Discard** (red, `DiffDelete`) — drop the changes and close.
-- **Cancel** (gray, `PmenuSbar`) — keep the sidebar open.
+- **Save** (green, `DiffAdd`): apply the changes and close.
+- **Discard** (red, `DiffDelete`): drop the changes and close.
+- **Cancel** (gray, `PmenuSbar`): keep the sidebar open.
 
 Keyboard shortcuts: `y` (save), `n` (discard), `q` / `<Esc>` / `<C-c>`
 (cancel). The modal opens with a focus guard so `mini.files`' focus-loss

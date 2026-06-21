@@ -12,7 +12,7 @@
 --   - Dirty indicator: VS Code shows a filled dot while the file has unsaved
 --     changes and a cross once it is clean. We mirror that exactly.
 --   - The whole tab is clickable to switch buffers (provided by
---     mini.tabline's `%N@MiniTablineSwitchBuffer@` wrapper) — just like
+--     mini.tabline's `%N@MiniTablineSwitchBuffer@` wrapper), just like
 --     clicking a VS Code tab.
 --   - The active tab gets a distinct, brighter highlight so it reads as
 --     "selected", same as VS Code's active tab.
@@ -21,7 +21,7 @@
 -- `set_highlights()` pulls VS Code's exact tab palette from the live
 -- `TabLineSel` / `TabLine` / `TabLineFill` groups that vscode.nvim populates
 -- (vscTabCurrent / vscTabOther / vscTabOutside), and tints the dirty indicator
--- from the theme's git/diagnostic colors — the same approach barbar.nvim uses
+-- from the theme's git/diagnostic colors, the same approach barbar.nvim uses
 -- for its `Buffer*` groups. No hardcoded hex fallbacks are used.
 
 local M = {}
@@ -32,7 +32,7 @@ local M = {}
 M.GLYPHS = {}
 
 -- Resolve a highlight definition, following links so we read the real colors.
--- Returns the table from `nvim_get_hl` (possibly empty) — never nil.
+-- Returns the table from `nvim_get_hl` (possibly empty), never nil.
 local function resolve(group)
 	return vim.api.nvim_get_hl(0, { name = group, link = false }) or {}
 end

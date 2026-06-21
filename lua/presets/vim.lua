@@ -2,7 +2,7 @@
 --
 -- The "vim" keybinding preset: plain Vim defaults, no leader-based overrides.
 --
--- It registers NO custom keymaps — users who want the stock Vim experience
+-- It registers NO custom keymaps, users who want the stock Vim experience
 -- (and to use fff.nvim via :FindFiles / :LiveGrep commands rather than
 -- <leader> prefixes) pick this preset. A preset is just a module with an
 -- apply() function; this one is intentionally a no-op for keymaps.

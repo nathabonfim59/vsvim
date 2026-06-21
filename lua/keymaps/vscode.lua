@@ -286,7 +286,7 @@ function M.apply()
 	map({ "n", "v" }, "<C-S-]>", "zo")
 	map("i",          "<C-S-]>", "<C-o>zo")
 
-	-- Escape in insert: VSCode-feel — clear any in-flight selection/completion
+	-- Escape in insert: VSCode-feel, clear any in-flight selection/completion
 	-- but stay at the cursor. We leave the default <Esc> (exit to normal) in
 	-- place; the important thing is that all the shortcuts above mean the user
 	-- rarely needs to reach for Esc to do editing work.

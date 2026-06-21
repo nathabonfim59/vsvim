@@ -81,7 +81,7 @@ local function reset_hunk(buf_id, hunk)
 end
 
 -- Open a full-file diff view: HEAD (mini.diff's ref_text) on the left, the
--- working buffer on the right, both with 'diff' enabled — VS Code's "Open
+-- working buffer on the right, both with 'diff' enabled, VS Code's "Open
 -- Changes" layout. Press `q` in either window (or just close the left one)
 -- to leave diff mode and restore the working buffer.
 function M.open_file_diff(buf_id)
@@ -144,7 +144,7 @@ function M.open_file_diff(buf_id)
 	end
 
 	-- Enable diff mode on both windows. `diffopt` defaults already include
-	-- `closeoff`, so closing either window turns diff off in the other — but
+	-- `closeoff`, so closing either window turns diff off in the other, but
 	-- we also force it off on the working window when the ref window closes,
 	-- to be safe across nvim versions.
 	vim.wo[ref_win].diff = true

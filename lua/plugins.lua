@@ -81,7 +81,7 @@ set_diff_highlights()
 -- Pure logic in lua/diff_gutter.lua.
 require("diff_gutter").setup()
 
--- mini.pairs: auto-close brackets, quotes, etc. — VSCode's default behaviour.
+-- mini.pairs: auto-close brackets, quotes, etc., VSCode's default behaviour.
 -- mini.keymap's "minipairs_cr" / "minipairs_bs" steps depend on this.
 require("mini.pairs").setup()
 

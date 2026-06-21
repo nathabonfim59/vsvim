@@ -1,8 +1,8 @@
 # Floating terminal (TUI)
 
 Sources:
-- [`lua/tui/init.lua`](../lua/tui/init.lua) — the module returned by `require("tui")`
-- [`plugin/tui.lua`](../plugin/tui.lua) — auto-sourced; registers `:Tui` + `<leader>gg`
+- [`lua/tui/init.lua`](../lua/tui/init.lua): the module returned by `require("tui")`
+- [`plugin/tui.lua`](../plugin/tui.lua): auto-sourced; registers `:Tui` + `<leader>gg`
 
 Open any TUI program full-screen in a floating terminal window. Used to
 provide the `<leader>gg` lazygit keymap and the statusline's
@@ -12,9 +12,9 @@ click-branch-to-open-lazygit feature.
 
 Per `:help lua-module-load` and `:help load-plugins`:
 
-- `lua/tui/init.lua` — the module returned by `require("tui")`. Pure
+- `lua/tui/init.lua`: the module returned by `require("tui")`. Pure
   logic / reusable API, no side-effects.
-- `plugin/tui.lua` — auto-sourced at startup. Calls `tui.setup()` with
+- `plugin/tui.lua`: auto-sourced at startup. Calls `tui.setup()` with
   defaults, registers the `:Tui` user command, and maps `<leader>gg` to
   open lazygit.
 
@@ -64,13 +64,13 @@ require("tui").open({ "btop" }, { title = "btop", padding = 0 })
 
 ## Behaviour
 
-- **Reuse** — if a float for the same command is already open, it is
+- **Reuse**: if a float for the same command is already open, it is
   focused instead of opening a new one.
-- **Resize** — floats are resized to the editor on `VimResized`.
-- **Cleanup** — the float is closed when the terminal job exits
+- **Resize**: floats are resized to the editor on `VimResized`.
+- **Cleanup**: the float is closed when the terminal job exits
   (`TermClose`) and (optionally) when its buffer loses focus
   (`BufLeave`). The scratch buffer is wiped on close.
-- **Binary check** — `open()` refuses to launch a program that isn't on
+- **Binary check**: `open()` refuses to launch a program that isn't on
   `$PATH` and notifies the user instead.
 
 ## How it works

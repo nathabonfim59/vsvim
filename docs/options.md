@@ -21,7 +21,7 @@ closer to VS Code. Set in `init.lua` before plugins load.
 ## Notes
 
 - `expandtab` is deliberately **not** set, so files that use real tabs
-  keep them. The statusline's indent section reflects this — it shows
+  keep them. The statusline's indent section reflects this, it shows
   `Tab Size: 4` instead of `Spaces: 4` when `expandtab` is off.
 - `laststatus = 3` is also re-asserted by
   [`lua/statusline.lua`](../lua/statusline.lua) at setup time, since VS

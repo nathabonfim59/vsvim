@@ -1,8 +1,8 @@
 # Git gutter & hunks
 
 Sources:
-- [`lua/diff_gutter.lua`](../lua/diff_gutter.lua) — clickable gutter, hunk preview, file diff
-- [`lua/plugins.lua`](../lua/plugins.lua) — `mini.diff` / `mini.git` setup and diff highlights
+- [`lua/diff_gutter.lua`](../lua/diff_gutter.lua): clickable gutter, hunk preview, file diff
+- [`lua/plugins.lua`](../lua/plugins.lua): `mini.diff` / `mini.git` setup and diff highlights
 
 VS Code-style git integration: gutter diff indicators, a clickable gutter
 that previews / discards hunks, and a full-file "Open Changes" diff view.
@@ -66,8 +66,8 @@ of the hunk:
 It is built on the reusable [`modal`](modal.md) module and has a
 top-right button bar with two buttons:
 
-- **Discard** (red, `DiffDelete`) — reset the hunk to its reference text.
-- **Close** (gray, `PmenuSbar`, preselected) — close the preview.
+- **Discard** (red, `DiffDelete`): reset the hunk to its reference text.
+- **Close** (gray, `PmenuSbar`, preselected): close the preview.
 
 Keyboard shortcuts: `d` (discard), `q` / `<Esc>` (close). Tab cycles the
 buttons, Enter activates, mouse click works too.

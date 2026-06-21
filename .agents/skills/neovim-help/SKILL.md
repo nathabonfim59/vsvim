@@ -79,7 +79,7 @@ nvim --headless \
   +qa
 ```
 
-If output is empty, the topic may not exist in this Nvim version — verify with:
+If output is empty, the topic may not exist in this Nvim version, verify with:
 
 ```bash
 nvim --headless +'lua print(vim.fn.exists(":help"))' +qa
@@ -93,7 +93,7 @@ headers look like `==...== Title    *tag*`; grep for the tag to jump.
 ## When NOT to use this skill
 
 - The task is about the user's plugin source code (read the repo instead).
-- The user explicitly asks for the *latest/master* doc — then fetch from
+- The user explicitly asks for the *latest/master* doc, then fetch from
   `https://raw.githubusercontent.com/neovim/neovim/master/runtime/doc/<file>.txt`
   and say so, noting it may differ from the installed version.
 
@@ -102,5 +102,5 @@ headers look like `==...== Title    *tag*`; grep for the tag to jump.
 - The rendered web URL `neovim.io/doc/user/<file>#<tag>` 404s for some files;
   don't rely on it.
 - `lua-stdlib` types are *not* on the global `vim.` namespace; see `lua.txt`.
-- Help is plain text — strip nothing special, but `|tags|` and `*tags*` are
+- Help is plain text, strip nothing special, but `|tags|` and `*tags*` are
   markup, not literal text.

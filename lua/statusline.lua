@@ -6,7 +6,7 @@
 -- via `require("statusline").setup()` after `mini.statusline` is added with
 -- `vim.pack`. See AGENTS.md for the lua/ vs plugin/ split rationale.
 --
--- Design goals (mimic VS Code's status bar — the solid blue strip at the
+-- Design goals (mimic VS Code's status bar, the solid blue strip at the
 -- very bottom of the window):
 --   - One solid bar spanning the full width, not segmented "bubbles".
 --     VS Code's status bar has no separators between sections; everything
@@ -17,7 +17,7 @@
 --     EOL mode, and the language mode (filetype).
 --   - White-on-blue text. The exact blue is VS Code's status-bar blue, which
 --     the vscode.nvim palette exposes as `vscDarkBlue` (#223E55 in dark,
---     #007ACC in light — the latter being *literally* VS Code's value).
+--     #007ACC in light, the latter being *literally* VS Code's value).
 --   - Inactive windows get a dimmed variant, mirroring VS Code's unfocused
 --     status bar.
 --
@@ -29,7 +29,7 @@
 local M = {}
 
 -- Resolve a highlight definition, following links so we read the real colors.
--- Returns the table from `nvim_get_hl` (possibly empty) — never nil.
+-- Returns the table from `nvim_get_hl` (possibly empty), never nil.
 local function resolve(group)
 	return vim.api.nvim_get_hl(0, { name = group, link = false }) or {}
 end
@@ -43,7 +43,7 @@ M.GLYPHS = {}
 -- Sections ----------------------------------------------------------------
 --
 -- Each returns a string suitable for one statusline segment (no surrounding
--- spaces — `combine_groups` pads them). Return "" to omit. We reuse
+-- spaces, `combine_groups` pads them). Return "" to omit. We reuse
 -- mini.statusline's built-in sections where they already do the right thing
 -- (truncation, icon resolution, etc.) and only override the VS Code-specific
 -- bits (position format, indentation, EOL).
@@ -129,7 +129,7 @@ function M.section_indent()
 	return "Tab Size: " .. width
 end
 
--- End-of-line style: LF / CRLF / CR — VS Code surfaces this clickable item.
+-- End-of-line style: LF / CRLF / CR, VS Code surfaces this clickable item.
 function M.section_eol()
 	local ff = vim.bo.fileformat
 	if ff == "unix" then return "LF"
@@ -202,7 +202,7 @@ end
 --
 -- We define our own `VsvimStatusline` / `VsvimStatuslineInactive` (rather
 -- than reusing mini.statusline's MiniStatusline* groups) because VS Code's
--- bar is a *single* flat color — mini.statusline's groups are designed for
+-- bar is a *single* flat color, mini.statusline's groups are designed for
 -- per-section tinting, which we deliberately don't want here.
 --
 -- One wrinkle vs. the tabline: VS Code's status bar is a solid *blue*
@@ -321,7 +321,7 @@ function M.setup(opts)
 	end
 
 	-- Diagnostic signs: read from Neovim's own sign config (set by colorscheme /
-	-- user config via vim.diagnostic.config). This is the canonical source —
+	-- user config via vim.diagnostic.config). This is the canonical source,
 	-- mini.icons has no error/warn entries in its lsp category.
 	local sev = vim.diagnostic.severity
 	local dsigns = (vim.diagnostic.config() or {}).signs

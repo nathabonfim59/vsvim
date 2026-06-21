@@ -17,9 +17,9 @@ unsaved-changes-on-close modal.
   click support.
 - **Optional backdrop** (dimming overlay) behind the modal.
 - **Custom keymaps** mapped to action strings.
-- **Focus guard** — prevents other code (e.g. `mini.files`' focus-loss
+- **Focus guard**: prevents other code (e.g. `mini.files`' focus-loss
   timer) from stealing focus while the modal is open.
-- **Non-focus mode** — open the float without stealing focus from the
+- **Non-focus mode**: open the float without stealing focus from the
   current buffer, so no `BufLeave` / `WinLeave` fires on it. This avoids
   autowrite and other leave-triggered side effects when the caller's
   buffer has unsaved changes.

@@ -3,7 +3,7 @@
 Source: [`lua/plugins.lua`](../lua/plugins.lua)
 
 vsvim uses Neovim 0.12's built-in [`vim.pack`](https://neovim.io/doc/user/vim.pack.html)
-for plugin management — no external plugin manager. Plugins are added
+for plugin management, no external plugin manager. Plugins are added
 with `vim.pack.add({ ... })` and live under vsvim's own data directory
 (`~/.local/share/vsvim`) thanks to `$NVIM_APPNAME=vsvim`.
 

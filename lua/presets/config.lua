@@ -14,8 +14,8 @@ local M = {}
 -- All available presets, in display order. Each value is the module name
 -- under lua/presets/ that defines that preset's keymaps (see presets.init).
 M.PRESETS = {
-	{ name = "vsvim", desc = "vsvim — leader-based keymaps (<leader>sf, <leader>sg, ...)" },
-	{ name = "vim", desc = "vim — plain Vim defaults, no leader-based overrides" },
+	{ name = "vsvim", desc = "vsvim: leader-based keymaps (<leader>sf, <leader>sg, ...)" },
+	{ name = "vim", desc = "vim: plain Vim defaults, no leader-based overrides" },
 }
 
 -- File used to remember the choice. Lives under stdpath("config"), which is
@@ -99,7 +99,7 @@ function M.prompt(on_choice)
 		if not choice then
 			-- User cancelled: default to the vsvim preset but don't save,
 			-- so they get prompted again next time.
-			vim.notify("vsvim: no selection — using default 'vsvim' keybindings", vim.log.levels.INFO)
+			vim.notify("vsvim: no selection, using default 'vsvim' keybindings", vim.log.levels.INFO)
 			on_choice("vsvim")
 			return
 		end
