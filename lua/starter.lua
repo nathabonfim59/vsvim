@@ -16,22 +16,22 @@
 
 local M = {}
 
--- VSVIM banner. "VS" uses the "Efti Italic" figlet font (handwritten italic,
--- light strokes), "VIM" uses the "ANSI Shadow" figlet font (filled blocks
--- with drop shadow), so the two halves read as distinct words. Joined side
--- by side with two spaces.
--- Generated with: figlet -f "Efti Italic" VS ; figlet -f "ANSI Shadow" VIM.
+-- vsVIM banner. "vs" (lowercase) uses the "ANSI Shadow" figlet font (filled
+-- blocks with drop shadow), "VIM" (uppercase) uses the "Standard" figlet
+-- font, so the bold lowercase prefix contrasts with the lighter VIM.
+-- Joined side by side with two spaces.
+-- Generated with: figlet -f "ANSI Shadow" vs ; figlet -f "Standard" VIM.
 local BANNER = [[
-  _ __  ___  ██╗   ██╗██╗███╗   ███╗
- /// /,' _/  ██║   ██║██║████╗ ████║
-| V /_\ `.   ██║   ██║██║██╔████╔██║
-|_,'/___,'   ╚██╗ ██╔╝██║██║╚██╔╝██║
-              ╚████╔╝ ██║██║ ╚═╝ ██║
-               ╚═══╝  ╚═╝╚═╝     ╚═╝
+██╗   ██╗███████╗   __     _____ __  __
+██║   ██║██╔════╝   \ \   / /_ _|  \/  |
+██║   ██║███████╗    \ \ / / | || |\/| |
+╚██╗ ██╔╝╚════██║     \ V /  | || |  | |
+ ╚████╔╝ ███████║      \_/  |___|_|  |_|
+  ╚═══╝  ╚══════╝
 ]]
 
--- One-line tagline shown beneath the banner. Matches README.md.
-local TAGLINE = "VS Code, but in Neovim"
+-- One-line tagline shown beneath the banner.
+local TAGLINE = "VS Code-ish, but in Neovim"
 
 -- Build the header string: banner, blank line, tagline.
 local function build_header()
