@@ -79,6 +79,13 @@ end
 ---   win_options   table         Window-local options to apply.
 ---   backdrop      boolean       Show a dimming backdrop (default false).
 ---   backdrop_hl   string        Backdrop highlight group (default "NormalFloat").
+---   editable      boolean       Allow editing the modal body (default false).
+---                 When false (the default) the modal buffer is made fully
+---                 non-editable: 'modifiable' off (:help 'modifiable', E21)
+---                 blocks text changes, 'readonly' on (:help 'readonly')
+---                 blocks accidental writes, and buftype="nofile"
+---                 (:help 'buftype') detaches it from disk. Set to true for
+---                 input-style modals where the user types into the buffer.
 ---   noautocmd     boolean       Pass noautocmd=true to nvim_open_win (default false).
 ---   focus         boolean       Steal focus to the modal window (default true).
 ---                 When false, the float opens without entering it, the
@@ -111,6 +118,7 @@ function M.open(opts)
 	opts = opts or {}
 	local lines = vim.list_extend({}, opts.lines or {})
 	local focus = opts.focus ~= false -- default true
+	local editable = opts.editable == true -- default false
 
 	-- In non-focus mode, keymaps are set on the current buffer (saved here)
 	-- instead of the modal buffer, so the float never steals focus.
@@ -208,7 +216,12 @@ function M.open(opts)
 		vim.bo[backdrop_buf].buftype = "nofile"
 		vim.bo[backdrop_buf].bufhidden = "wipe"
 		vim.bo[backdrop_buf].swapfile = false
+		-- Fully non-editable: 'modifiable' off blocks text changes
+		-- (:help 'modifiable', E21), 'readonly' on blocks accidental
+		-- writes (:help 'readonly'). Combined with buftype="nofile"
+		-- (:help 'buftype') the buffer can't be written or altered.
 		vim.bo[backdrop_buf].modifiable = false
+		vim.bo[backdrop_buf].readonly = true
 
 		backdrop_win = vim.api.nvim_open_win(backdrop_buf, false, {
 			relative = "editor",
@@ -233,7 +246,15 @@ function M.open(opts)
 	vim.bo[buf_id].buftype = "nofile"
 	vim.bo[buf_id].bufhidden = "wipe"
 	vim.bo[buf_id].swapfile = false
-	vim.bo[buf_id].modifiable = false
+	-- Fully non-editable by default: 'modifiable' off blocks text changes
+	-- (:help 'modifiable', E21), 'readonly' on blocks accidental writes
+	-- (:help 'readonly'). Combined with buftype="nofile" (:help 'buftype')
+	-- the buffer can't be written or altered. Callers that need an
+	-- input-style modal pass opts.editable = true.
+	if not editable then
+		vim.bo[buf_id].modifiable = false
+		vim.bo[buf_id].readonly = true
+	end
 	if opts.filetype then
 		vim.bo[buf_id].filetype = opts.filetype
 	end
