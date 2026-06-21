@@ -1,5 +1,5 @@
--- Plugin management via vim.pack (Neovim 0.12+ built-in)
 -- See: :help vim.pack
+-- Plugin management via vim.pack (Neovim 0.12+ built-in)
 
 -- Install plugins:
 --   - mini.nvim: provides `mini.tabline` (the VS Code-style tab bar, see
@@ -92,6 +92,11 @@ require("mini.comment").setup()
 -- mini.completion: lightweight built-in completion used by mini.keymap's
 -- "pmenu_accept" / "pmenu_prev" smart-Tab steps.
 require("mini.completion").setup()
+
+-- mini.pick + mini.extra: the VS Code "Quick Open" family of pickers
+-- (Ctrl+P files, Ctrl+Shift+P command palette, Ctrl+Tab buffers). fff.nvim
+-- is reused as the file/grep backend; see lua/pickers.lua.
+require("pickers").setup()
 
 -- mini.files: VS Code-style sidebar filepicker. Toggle with Ctrl+B or click
 -- the folder icon in the statusline. Pure logic in lua/sidebar.lua.

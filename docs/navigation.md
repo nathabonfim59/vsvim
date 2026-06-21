@@ -144,10 +144,41 @@ from `keymaps/vscode.lua`, but are listed here for completeness.
 | `<leader>bd` | Close current editor tab (alias)             |
 | `<leader>bn` | Next editor tab                              |
 | `<leader>bp` | Previous editor tab                          |
+| `<C-Tab>`    | Open editors (buffer picker, mini.pick)      |
+| `<C-S-Tab>`  | Open editors (buffer picker, mini.pick)      |
 
 `<C-w>` shadows Vim's window-command prefix in normal mode. Window
 management is rarely needed in the single-window vsvim workflow; insert
 mode is left untouched so `<C-w>` (delete word) still works there.
+
+`<C-Tab>` / `<C-S-Tab>` open mini.pick's buffer picker (VS Code's "Open
+Editors"). Note: some terminals intercept `Ctrl+Tab`; if the key does not
+reach Neovim, use a GUI or remap at the terminal level.
+
+## Quick Open / command palette (vsvim preset)
+
+The VS Code "Quick Open" family, built on `mini.pick` with `fff.nvim` as
+the file/grep backend (see [`lua/pickers.lua`](../lua/pickers.lua)):
+
+| Key          | Action                                                       |
+| ------------ | ------------------------------------------------------------ |
+| `<C-p>`      | Quick Open: open buffers first, then fff-indexed files       |
+| `<C-S-p>`    | Command palette: Ex commands + active keymaps in one picker  |
+| `<C-S-f>`    | Find in files (fff.nvim live grep)                           |
+| `<leader>sf` | Search [F]iles (fff.nvim native UI)                          |
+| `<leader>sg` | Search [G]rep (fff.nvim live grep)                           |
+| `<leader>sw` | Search [W]ord under cursor                                   |
+| `<leader>gg` | Open lazygit (floating terminal)                             |
+
+`<C-p>` shows all open buffers (including the current one, MRU-ordered)
+when the prompt is empty. As you type, matching buffers stay pinned at
+the top and fff-indexed files are appended below in frecency order. On a
+cold cache the file list is empty until fff's background indexer
+finishes; buffers are always shown immediately.
+
+`<C-S-p>` merges every Ex command and every active keymap into a single
+picker. Selecting a command feeds `:Cmd` (with a trailing space when it
+takes arguments); selecting a keymap replays its `lhs`.
 
 ## Fuzzy finder (vsvim preset)
 
@@ -159,4 +190,5 @@ mode is left untouched so `<C-w>` (delete word) still works there.
 | `<leader>gg` | Open lazygit (floating terminal)    |
 
 In the **vim** preset these are exposed as `:FindFiles`, `:LiveGrep`,
-`:GrepWord`, and `:Tui lazygit` instead.
+`:GrepWord`, `:PickFiles`, `:CommandPalette`, `:PickBuffers`, and
+`:Tui lazygit` instead.

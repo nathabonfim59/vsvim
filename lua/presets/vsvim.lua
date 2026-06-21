@@ -128,6 +128,18 @@ function M.apply()
 		require("fff").live_grep({ query = vim.fn.expand("<cword>") })
 	end, { desc = "[S]earch [W]ord" })
 
+	-- VS Code "Quick Open" family (mini.pick, with fff as file/grep backend).
+	-- See lua/pickers.lua. Ctrl+P lists open buffers first then fff-indexed
+	-- files, Ctrl+Shift+P is the command palette (commands + keymaps),
+	-- Ctrl+Shift+F is find-in-files (fff live grep), Ctrl+Tab opens the
+	-- buffer picker.
+	local pickers = require("pickers")
+	vim.keymap.set("n", "<C-p>", pickers.files, { desc = "Quick Open (buffers + files)" })
+	vim.keymap.set("n", "<C-S-p>", pickers.command_palette, { desc = "Command palette (commands + keymaps)" })
+	vim.keymap.set("n", "<C-S-f>", pickers.grep, { desc = "Find in files (fff live grep)" })
+	vim.keymap.set("n", "<C-Tab>", pickers.buffers, { desc = "Open editors (buffer picker)" })
+	vim.keymap.set("n", "<C-S-Tab>", pickers.buffers, { desc = "Open editors (buffer picker)" })
+
 	-- Tab/buffer management (VS Code-style tabline lives in lua/tabline.lua).
 	-- Ctrl+W closes the current editor tab, matching VS Code's shortcut.
 	-- This shadows Vim's <C-w> window-command prefix in normal mode; window

@@ -53,7 +53,16 @@ function M.setup()
 			-- so a switch to "vim" doesn't leave stale <leader> mappings around.
 			-- (Simplest correct approach: delete our known maps.)
 			if M._applied == "vsvim" then
-				for _, lhs in ipairs({ "<leader>sf", "<leader>sg", "<leader>sw" }) do
+				for _, lhs in ipairs({
+					"<leader>sf",
+					"<leader>sg",
+					"<leader>sw",
+					"<C-p>",
+					"<C-S-p>",
+					"<C-S-f>",
+					"<C-Tab>",
+					"<C-S-Tab>",
+				}) do
 					pcall(vim.keymap.del, "n", lhs)
 				end
 			end

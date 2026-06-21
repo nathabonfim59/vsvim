@@ -11,8 +11,8 @@ with `vim.pack.add({ ... })` and live under vsvim's own data directory
 
 | Plugin                                                       | Purpose                                              |
 | ------------------------------------------------------------ | ---------------------------------------------------- |
-| [`mini.nvim`](https://github.com/nvim-mini/mini.nvim)        | Library: tabline, statusline, files, diff, git, icons, pairs, comment, completion, keymap |
-| [`fff.nvim`](https://github.com/dmtrKovalenko/fff.nvim)      | Fuzzy finder (`<leader>sf` / `<leader>sg` / `<leader>sw`) |
+| [`mini.nvim`](https://github.com/nvim-mini/mini.nvim)        | Library: tabline, statusline, files, diff, git, icons, pairs, comment, completion, keymap, pick, extra |
+| [`fff.nvim`](https://github.com/dmtrKovalenko/fff.nvim)      | Fuzzy finder (`<leader>sf` / `<leader>sg` / `<leader>sw`), file/grep backend for the Quick Open pickers |
 | [`vscode.nvim`](https://github.com/Mofiqul/vscode.nvim)      | VS Code Dark+ / Light+ colorscheme                   |
 
 `mini.nvim` loads lazily per module, so adding the whole repo doesn't
@@ -28,6 +28,8 @@ start anything until a module's `setup()` runs.
 | `mini.pairs`  | `plugins.lua`      | auto-close brackets / quotes         |
 | `mini.comment`| `plugins.lua`      | `gc` / `gcc` / `gb` comment operators (Ctrl+/ and Shift+Alt+A) |
 | `mini.completion` | `plugins.lua`  | completion popup for `mini.keymap`'s smart-Tab / Enter |
+| `mini.pick`   | `plugins.lua`      | Quick Open / command palette / buffer picker ([navigation.md](navigation.md)) |
+| `mini.extra`  | `plugins.lua`      | commands/keymaps sources for the command palette |
 | `mini.keymap` | `keymaps/vscode.lua` | smart Tab / S-Tab / CR / BS multisteps |
 | `mini.files`  | `sidebar.lua`      | [sidebar filepicker](sidebar.md)     |
 | `mini.tabline`| `tabline.lua`      | [editor tab bar](tabline.md)         |

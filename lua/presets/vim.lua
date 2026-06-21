@@ -28,6 +28,18 @@ function M.apply()
 		require("fff").live_grep({ query = vim.fn.expand("<cword>") })
 	end, { desc = "vsvim: grep word under cursor" })
 
+	-- mini.pick-based pickers (see lua/pickers.lua). Exposed as commands so
+	-- the vim preset stays free of leader/Ctrl+ keymap overrides.
+	vim.api.nvim_create_user_command("PickFiles", function()
+		require("pickers").files()
+	end, { desc = "vsvim: quick open (buffers + fff files)" })
+	vim.api.nvim_create_user_command("CommandPalette", function()
+		require("pickers").command_palette()
+	end, { desc = "vsvim: command palette (commands + keymaps)" })
+	vim.api.nvim_create_user_command("PickBuffers", function()
+		require("pickers").buffers()
+	end, { desc = "vsvim: buffer picker" })
+
 	-- Buffer/tab management commands (VS Code-style tabline in lua/tabline.lua).
 	vim.api.nvim_create_user_command("BufferClose", function()
 		local cur = vim.api.nvim_get_current_buf()

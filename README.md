@@ -53,8 +53,11 @@ chrome (sidebar, tab bar, status bar, clickable git gutter) on top of
   completion then indents, Enter accepts completion then honors auto-pairs,
   Backspace unwraps auto-pairs.
 - **Auto-pairs, comments, completion** from `mini.nvim`.
-- **`fff.nvim`** fuzzy finder: `<leader>sf` (files), `<leader>sg` (grep),
-  `<leader>sw` (word under cursor).
+- **Quick Open family** (`mini.pick` + `fff.nvim`): `<C-p>` quick-open
+  (open buffers first, then fff-indexed files), `<C-S-p>` command palette
+  (Ex commands + keymaps), `<C-S-f>` find in files (fff live grep),
+  `<C-Tab>` buffer picker. Plus `<leader>sf` / `<leader>sg` / `<leader>sw`
+  for fff.nvim's native file/grep UI.
 
 ### Buffer / tab management
 - **`<C-w>` closes the current editor tab** (VS Code style). If the buffer
