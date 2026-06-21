@@ -60,6 +60,16 @@ local function close_current_buffer()
 		name = vim.fn.fnamemodify(name, ":~:.")
 	end
 
+	-- Temporarily disable autowrite/autowriteall so that no autocmd or
+	-- focus change can silently save the buffer while the modal is open or
+	-- during the focus transition when it closes. Restored via vim.schedule
+	-- in on_close so it runs after all focus-related autocmds have settled,
+	-- regardless of whether the user chose an action or the modal auto-closed.
+	local saved_aw = vim.o.autowrite
+	local saved_awa = vim.o.autowriteall
+	vim.o.autowrite = false
+	vim.o.autowriteall = false
+
 	modal.open({
 		title = { { " Unsaved Changes ", "WarningMsg" } },
 		lines = {
@@ -89,6 +99,14 @@ local function close_current_buffer()
 			["<Esc>"] = "cancel",
 			["<C-c>"] = "cancel",
 		},
+		on_close = function()
+			-- Restore autowrite after all focus autocmds from closing the
+			-- modal have fired (vim.schedule defers to the next event loop).
+			vim.schedule(function()
+				vim.o.autowrite = saved_aw
+				vim.o.autowriteall = saved_awa
+			end)
+		end,
 		on_action = function(action)
 			if action == "save" then
 				-- Write the specific buffer (cur), not just "current buffer",
@@ -104,7 +122,7 @@ local function close_current_buffer()
 			elseif action == "discard" then
 				switch_and_delete(cur, true)
 			end
-			-- "cancel" is a no-op
+			-- "cancel" is a no-op — buffer stays open, nothing is written.
 		end,
 	})
 end
