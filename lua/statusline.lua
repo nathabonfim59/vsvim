@@ -80,11 +80,16 @@ end
 
 -- Diff summary from mini.diff/gitsigns. VS Code folds this into the branch
 -- indicator; we keep it separate (mini.statusline convention) so it just
--- reads as extra detail next to the branch.
+-- reads as extra detail next to the branch. Clicking it opens a full-file
+-- diff view (HEAD vs working buffer) via `diff_gutter.open_file_diff()`.
 function M.section_diff()
 	local MiniStatusline = _G.MiniStatusline
 	if not MiniStatusline then return "" end
-	return MiniStatusline.section_diff({ trunc_width = 100 })
+	local s = MiniStatusline.section_diff({ trunc_width = 100 })
+	if s == "" then
+		return s
+	end
+	return "%@VsvimStatuslineDiffClick@" .. s .. "%X"
 end
 
 -- Errors / warnings with glyphs resolved from `vim.diagnostic.config().signs.text`.
@@ -269,6 +274,17 @@ local function git_click_handler()
 	end
 end
 
+-- Open a full-file diff view (HEAD vs working buffer) from the statusline
+-- diff-summary click region. Delegates to diff_gutter.open_file_diff().
+local function diff_click_handler()
+	local ok, diff_gutter = pcall(require, "diff_gutter")
+	if ok then
+		diff_gutter.open_file_diff(0)
+	else
+		vim.notify("statusline: 'diff_gutter' module not found", vim.log.levels.ERROR)
+	end
+end
+
 -- Apply VS Code-style statusline.
 -- `opts` is forwarded to `mini.statusline.setup()` (merged with our defaults).
 function M.setup(opts)
@@ -282,12 +298,17 @@ function M.setup(opts)
 	_G.vsvim_statusline_sidebar_click = sidebar_click_handler
 	-- Clicking the git branch indicator opens lazygit (if the tui module is available).
 	_G.vsvim_statusline_git_click = git_click_handler
+	-- Clicking the diff summary opens a full-file diff view (HEAD vs working buffer).
+	_G.vsvim_statusline_diff_click = diff_click_handler
 	vim.cmd([[
 		function! VsvimStatuslineSidebarClick(...) abort
 			call v:lua.vsvim_statusline_sidebar_click()
 		endfunction
 		function! VsvimStatuslineGitClick(...) abort
 			call v:lua.vsvim_statusline_git_click()
+		endfunction
+		function! VsvimStatuslineDiffClick(...) abort
+			call v:lua.vsvim_statusline_diff_click()
 		endfunction
 	]])
 

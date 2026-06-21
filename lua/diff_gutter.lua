@@ -80,6 +80,104 @@ local function reset_hunk(buf_id, hunk)
 	end
 end
 
+-- Open a full-file diff view: HEAD (mini.diff's ref_text) on the left, the
+-- working buffer on the right, both with 'diff' enabled — VS Code's "Open
+-- Changes" layout. Press `q` in either window (or just close the left one)
+-- to leave diff mode and restore the working buffer.
+function M.open_file_diff(buf_id)
+	buf_id = buf_id or 0
+	if buf_id == 0 then
+		buf_id = vim.api.nvim_get_current_buf()
+	end
+
+	local ok, MiniDiff = pcall(require, "mini.diff")
+	if not ok then
+		vim.notify("diff_gutter: 'mini.diff' not found", vim.log.levels.ERROR)
+		return
+	end
+
+	local buf_data = MiniDiff.get_buf_data(buf_id)
+	if not buf_data or type(buf_data.ref_text) ~= "string" then
+		vim.notify("diff_gutter: no reference text for this buffer", vim.log.levels.WARN)
+		return
+	end
+
+	-- Find a window currently showing the working buffer; fall back to the
+	-- current window. We'll split it to the left and put the ref buffer there.
+	local work_win = nil
+	for _, w in ipairs(vim.api.nvim_list_wins()) do
+		if vim.api.nvim_win_get_buf(w) == buf_id then
+			work_win = w
+			break
+		end
+	end
+	work_win = work_win or vim.api.nvim_get_current_win()
+
+	-- Build a scratch buffer holding the reference (HEAD) text.
+	local ref_lines = vim.split(buf_data.ref_text, "\n")
+	-- nvim_buf_set_lines drops a trailing empty element produced by the
+	-- trailing newline mini.diff appends; that's fine, it just means the
+	-- ref buffer has the same line count as the file at HEAD.
+	local ref_buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(ref_buf, 0, -1, false, ref_lines)
+	vim.bo[ref_buf].buftype = "nofile"
+	vim.bo[ref_buf].bufhidden = "wipe"
+	vim.bo[ref_buf].swapfile = false
+	vim.bo[ref_buf].modifiable = false
+	vim.bo[ref_buf].readonly = true
+	vim.bo[ref_buf].filetype = "diff"
+
+	-- Title the ref buffer like VS Code's "HEAD • <file>" tab.
+	local name = vim.api.nvim_buf_get_name(buf_id)
+	local short = (name ~= "" and vim.fn.fnamemodify(name, ":t")) or "buffer"
+	vim.api.nvim_buf_set_name(ref_buf, "HEAD • " .. short)
+
+	-- Open the ref buffer in a left split off the working window.
+	local ref_win = vim.api.nvim_open_win(ref_buf, false, {
+		split = "left",
+		win = work_win,
+	})
+	if ref_win == 0 then
+		vim.notify("diff_gutter: could not open diff split", vim.log.levels.ERROR)
+		pcall(vim.api.nvim_buf_delete, ref_buf, { force = true })
+		return
+	end
+
+	-- Enable diff mode on both windows. `diffopt` defaults already include
+	-- `closeoff`, so closing either window turns diff off in the other — but
+	-- we also force it off on the working window when the ref window closes,
+	-- to be safe across nvim versions.
+	vim.wo[ref_win].diff = true
+	vim.wo[work_win].diff = true
+
+	-- `q` in either window closes the ref window, which (via the autocmd
+	-- below) restores the working buffer to non-diff mode.
+	local function close_diff()
+		if vim.api.nvim_win_is_valid(ref_win) then
+			vim.api.nvim_win_close(ref_win, true)
+		end
+	end
+
+	vim.keymap.set("n", "q", close_diff, { buffer = ref_buf, silent = true, nowait = true })
+	vim.keymap.set("n", "q", close_diff, { buffer = buf_id, silent = true, nowait = true })
+
+	vim.api.nvim_create_autocmd("WinClosed", {
+		pattern = tostring(ref_win),
+		once = true,
+		callback = function()
+			if vim.api.nvim_win_is_valid(work_win) then
+				vim.wo[work_win].diff = false
+			end
+			-- Remove the buffer-local `q` we added to the working buffer.
+			pcall(vim.keymap.del, "n", "q", { buffer = buf_id })
+		end,
+	})
+
+	-- Jump to the working window so the cursor stays on the editable side.
+	pcall(vim.api.nvim_set_current_win, work_win)
+	vim.cmd("diffupdate")
+end
+
 -- Open a floating window previewing the hunk under the cursor/click.
 local function open_hunk_preview(buf_id, hunk)
 	modal.open({
