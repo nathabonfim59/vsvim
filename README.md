@@ -1,5 +1,7 @@
 # vsvim
 
+<img width="1402" height="888" alt="image" src="https://github.com/user-attachments/assets/9f04f77b-34db-48f6-b463-9637274e78ce" />
+
 VS Code, but in Neovim — with as few plugins as possible.
 
 A minimal Neovim config that aims for a familiar editor experience without
