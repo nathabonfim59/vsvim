@@ -25,7 +25,10 @@ local M = {}
 local function hunk_at_line(buf_data, line)
 	for _, h in ipairs(buf_data.hunks or {}) do
 		if h.type == "delete" then
-			if h.buf_start == line then
+			-- "delete" hunks have buf_count = 0; mini.diff draws their sign at
+			-- line `max(buf_start, 1)` (buf_start can be 0 for a deletion at
+			-- the top of the file), so match against that, not raw buf_start.
+			if math.max(h.buf_start, 1) == line then
 				return h
 			end
 		elseif h.buf_start <= line and line <= h.buf_start + h.buf_count - 1 then
@@ -41,7 +44,9 @@ local function make_preview(buf_id, hunk)
 	local ref_text = buf_data and buf_data.ref_text or ""
 	local ref_lines = vim.split(ref_text, "\n")
 
-	local buf_lines = vim.api.nvim_buf_get_lines(buf_id, hunk.buf_start - 1, hunk.buf_start + hunk.buf_count - 1, false)
+	local buf_lines = hunk.buf_count > 0
+		and vim.api.nvim_buf_get_lines(buf_id, hunk.buf_start - 1, hunk.buf_start + hunk.buf_count - 1, false)
+		or {}
 
 	local lines = {}
 	table.insert(
@@ -74,8 +79,16 @@ local function reset_hunk(buf_id, hunk)
 	if hunk.type == "add" then
 		-- Remove added lines.
 		vim.api.nvim_buf_set_lines(buf_id, hunk.buf_start - 1, hunk.buf_start + hunk.buf_count - 1, false, {})
+	elseif hunk.type == "delete" then
+		-- Re-insert deleted reference lines. "delete" hunks have buf_count = 0
+		-- and buf_start is the 1-based line *after* which the deletion happened
+		-- (0 for a deletion at the top of the file), so the insert position in
+		-- 0-based indexing is exactly `buf_start`. Using `buf_start - 1` here
+		-- (as the change/replace branch does) would insert one line too early,
+		-- and for buf_start = 0 it would mean index -1, i.e. append at EOF.
+		vim.api.nvim_buf_set_lines(buf_id, hunk.buf_start, hunk.buf_start, false, new_lines)
 	else
-		-- Replace changed/deleted lines with their reference state.
+		-- Replace changed lines with their reference state.
 		vim.api.nvim_buf_set_lines(buf_id, hunk.buf_start - 1, hunk.buf_start + hunk.buf_count - 1, false, new_lines)
 	end
 end
