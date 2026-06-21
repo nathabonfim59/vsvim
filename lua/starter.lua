@@ -33,9 +33,25 @@ local BANNER = [[
 -- One-line tagline shown beneath the banner.
 local TAGLINE = "VS Code-ish, but in Neovim"
 
--- Build the header string: banner, blank line, tagline.
+-- Resolve the installed version. The vsvim launcher exports $VSVIM_VERSION
+-- (resolved from the VERSION file or the baked-in marker, see vsvim script).
+-- Falls back to "unknown" when not launched through the wrapper.
+local function get_version()
+	local v = vim.env.VSVIM_VERSION
+	if v == nil or v == "" then
+		return nil
+	end
+	return v
+end
+
+-- Build the header string: banner, blank line, tagline, optional version.
 local function build_header()
-	return BANNER .. "\n" .. TAGLINE
+	local header = BANNER .. "\n" .. TAGLINE
+	local version = get_version()
+	if version then
+		header = header .. "        v" .. version
+	end
+	return header
 end
 
 function M.setup(opts)
