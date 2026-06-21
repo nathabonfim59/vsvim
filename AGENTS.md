@@ -2,6 +2,8 @@
 
 Write commit messages in conventional commits format (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, optional scope).
 
+Keep commit messages short, a single sentence is enough.
+
 No em dashes. Use commas or colons.
 
 ## Plugin structure (per `:help lua-module-load` + `:help load-plugins`)
