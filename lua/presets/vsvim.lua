@@ -112,10 +112,45 @@ local function close_current_buffer()
 	})
 end
 
+-- "No modes" workflow: land in insert mode whenever an editable buffer is
+-- shown, so the editor is always ready to type (matching VS Code). Only
+-- normal file buffers (buftype == "" and modifiable) are affected; floats,
+-- terminals, quickfix, help, mini.files/pick/starter buffers, etc. keep
+-- their own mode handling.
+local function is_editable(buf)
+	if not vim.api.nvim_buf_is_valid(buf) then
+		return false
+	end
+	if vim.bo[buf].buftype ~= "" then
+		return false
+	end
+	return vim.bo[buf].modifiable
+end
+
+local function start_insert()
+	if is_editable(0) and vim.fn.mode() == "n" then
+		vim.cmd("startinsert")
+	end
+end
+
 function M.apply()
 	-- VSCode text-editing shortcuts (no-modes experience).
 	-- Must run after plugins.lua so mini.pairs / mini.comment are set up.
 	require("keymaps.vscode").apply()
+
+	-- Start in insert mode on editable buffers. BufEnter covers buffer
+	-- switches; VimEnter catches the initial buffer on startup paths where
+	-- BufEnter has already fired before apply() runs.
+	local group = vim.api.nvim_create_augroup("vsvim-start-insert", { clear = true })
+	vim.api.nvim_create_autocmd("BufEnter", {
+		group = group,
+		callback = start_insert,
+	})
+	vim.api.nvim_create_autocmd("VimEnter", {
+		group = group,
+		once = true,
+		callback = start_insert,
+	})
 	-- fff.nvim (fuzzy finder) keymaps. fff.nvim is required by plugins.lua,
 	-- so it is available by the time presets run.
 	vim.keymap.set("n", "<leader>sf", function()
