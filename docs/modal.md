@@ -91,6 +91,8 @@ Built-in keymaps when buttons are present:
 | ---------- | ----------------------------------- |
 | `<Tab>`    | Next button                         |
 | `<S-Tab>`  | Previous button                     |
+| `h` / `k`  | Previous button                     |
+| `l` / `j`  | Next button                         |
 | `<CR>`     | Activate selected button            |
 | `<LeftMouse>` | Click a button to activate it    |
 

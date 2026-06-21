@@ -406,6 +406,21 @@ function M.open(opts)
 			run_action(buttons_config.items[selected].action)
 		end, vim.tbl_extend("force", km_opts, { desc = "Activate button" }))
 
+		-- hjkl navigation: h/k move to the previous button, l/j to the next.
+		-- Only active when buttons are present (a button is always selected).
+		set_key("h", function()
+			cycle(-1)
+		end, vim.tbl_extend("force", km_opts, { desc = "Previous button" }))
+		set_key("l", function()
+			cycle(1)
+		end, vim.tbl_extend("force", km_opts, { desc = "Next button" }))
+		set_key("k", function()
+			cycle(-1)
+		end, vim.tbl_extend("force", km_opts, { desc = "Previous button" }))
+		set_key("j", function()
+			cycle(1)
+		end, vim.tbl_extend("force", km_opts, { desc = "Next button" }))
+
 		-- Mouse click on buttons: dispatch by column position. Non-button
 		-- clicks fall through to normal cursor positioning.
 		set_key("<LeftMouse>", function()
