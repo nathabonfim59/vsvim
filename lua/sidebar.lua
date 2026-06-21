@@ -206,8 +206,8 @@ local function get_pending_changes(MiniFiles)
 	return captured
 end
 
--- Highlight groups for the modal backdrop and title. Linked lazily so they
--- play nicely with any colorscheme already loaded.
+-- Highlight groups for the modal backdrop, title and buttons. Linked lazily so
+-- they play nicely with any colorscheme already loaded.
 local function ensure_modal_highlights()
 	if vim.fn.hlID("VsvimSidebarBackdrop") == 0 then
 		vim.api.nvim_set_hl(0, "VsvimSidebarBackdrop", { link = "NormalFloat", default = true })
@@ -215,6 +215,13 @@ local function ensure_modal_highlights()
 	if vim.fn.hlID("VsvimSidebarModalTitle") == 0 then
 		vim.api.nvim_set_hl(0, "VsvimSidebarModalTitle", { link = "FloatTitle", default = true })
 	end
+	-- Button colors mirror the diff gutter conventions:
+	--   Save    → DiffAdd    (green, positive action)
+	--   Discard → DiffDelete (red, destructive action)
+	--   Cancel  → PmenuSbar  (gray, neutral dismissal)
+	vim.api.nvim_set_hl(0, "VsvimSidebarSaveBtn", { default = true, link = "DiffAdd" })
+	vim.api.nvim_set_hl(0, "VsvimSidebarDiscardBtn", { default = true, link = "DiffDelete" })
+	vim.api.nvim_set_hl(0, "VsvimSidebarCancelBtn", { default = true, link = "PmenuSbar" })
 end
 
 -- Show a centered, focused modal describing pending changes and ask whether to
@@ -234,12 +241,6 @@ local function show_confirm_modal(change_lines, on_apply, on_discard)
 		"",
 	}
 	vim.list_extend(lines, change_lines)
-	vim.list_extend(lines, {
-		"",
-		" [y/Enter] Apply changes and close",
-		" [n]       Discard changes and close",
-		" [q/Esc]   Cancel and keep filepicker open",
-	})
 
 	modal.open({
 		title = { { " Confirm Changes ", "VsvimSidebarModalTitle" } },
@@ -254,28 +255,27 @@ local function show_confirm_modal(change_lines, on_apply, on_discard)
 		noautocmd = true,
 		focus_guard = true,
 		win_options = {
-			cursorline = true,
-			winhighlight = "Normal:NormalFloat,FloatBorder:FloatBorder,CursorLine:Visual",
+			cursorline = false,
+			winhighlight = "Normal:NormalFloat,FloatBorder:FloatBorder",
+		},
+		buttons = {
+			position = "bottom",
+			align = "right",
+			padding = 2,
+			items = {
+				{ label = " Save ", hl = "VsvimSidebarSaveBtn", action = "apply", default = true },
+				{ label = " Discard ", hl = "VsvimSidebarDiscardBtn", action = "discard" },
+				{ label = " Cancel ", hl = "VsvimSidebarCancelBtn", action = "cancel" },
+			},
 		},
 		keymaps = {
 			["y"] = "apply",
-			["<CR>"] = "apply",
 			["n"] = "discard",
 			["q"] = "cancel",
 			["<Esc>"] = "cancel",
 			["<C-c>"] = "cancel",
 		},
 		on_open = function(ctx)
-			-- Place cursor on the first actionable line ("Apply").
-			local action_line = 1
-			for i, line in ipairs(lines) do
-				if line:match("^ %[yY%]") or line:match("^ %[[yY]%/") then
-					action_line = i
-					break
-				end
-			end
-			pcall(vim.api.nvim_win_set_cursor, ctx.win, { action_line, 0 })
-
 			-- Stop `mini.files`' focus-loss timer while the modal is open.
 			-- Otherwise the timer would keep calling `MiniFiles.close()` every
 			-- second (the modal buffer is not `minifiles`), and it could reopen a
