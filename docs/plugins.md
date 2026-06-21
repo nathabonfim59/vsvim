@@ -34,6 +34,7 @@ start anything until a module's `setup()` runs.
 | `mini.files`  | `sidebar.lua`      | [sidebar filepicker](sidebar.md)     |
 | `mini.tabline`| `tabline.lua`      | [editor tab bar](tabline.md)         |
 | `mini.statusline` | `statusline.lua`| [status bar](statusline.md)          |
+| `mini.starter`| `starter.lua`      | start screen (ASCII banner, recent files, builtin actions) |
 
 ## Colorscheme
 

@@ -111,6 +111,11 @@ require("tabline").setup()
 -- right). Pure logic in lua/statusline.lua; built on `mini.statusline`.
 require("statusline").setup()
 
+-- mini.starter: VS Code-style start screen shown on `nvim` with no args.
+-- ASCII banner + recent files + builtin actions. Pure logic in
+-- lua/starter.lua; built on `mini.starter`.
+require("starter").setup()
+
 -- fff.nvim ships a prebuilt binary; build it on install.
 -- Triggered via the standard `PackChanged` event emitted by vim.pack.
 vim.api.nvim_create_autocmd("PackChanged", {
