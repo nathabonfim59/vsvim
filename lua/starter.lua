@@ -33,15 +33,17 @@ local BANNER = [[
 -- One-line tagline shown beneath the banner.
 local TAGLINE = "VS Code-ish, but in Neovim"
 
--- Resolve the installed version. The vsvim launcher exports $VSVIM_VERSION
--- (resolved from the VERSION file or the baked-in marker, see vsvim script).
--- Falls back to "unknown" when not launched through the wrapper.
+-- Resolve the installed version by running `vsvim --version`, which prints
+-- "vsvim <version>". Returns the version string, or nil if vsvim isn't on
+-- $PATH or the command fails (e.g. when Neovim is launched directly).
 local function get_version()
-	local v = vim.env.VSVIM_VERSION
-	if v == nil or v == "" then
+	local out = vim.system({ "vsvim", "--version" }, { text = true }):wait()
+	if not out or out.code ~= 0 then
 		return nil
 	end
-	return v
+	local line = (out.stdout or ""):match("^%s*(.-)%s*$")
+	local version = line and line:match("^vsvim%s+(%S+)$")
+	return version
 end
 
 -- Build the header string: banner, blank line, tagline, optional version.

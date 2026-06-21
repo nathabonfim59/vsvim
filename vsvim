@@ -75,7 +75,6 @@ else
 	VSVIM_VERSION="unknown"
 fi
 [ -n "$VSVIM_VERSION" ] || VSVIM_VERSION="unknown"
-export VSVIM_VERSION
 
 # ---------------------------------------------------------------------------
 # Semver helpers (X.Y.Z only; pre-release suffixes are stripped). Used by the
