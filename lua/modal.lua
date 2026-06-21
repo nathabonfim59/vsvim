@@ -12,6 +12,9 @@
 --   - Optional backdrop (dimming overlay)
 --   - Custom keymaps mapped to action strings
 --   - Focus guard (prevents other code from stealing focus while open)
+--   - Non-focus mode: open the float without stealing focus from the
+--     current buffer, so no BufLeave/WinLeave fires on it (avoids
+--     autowrite and other leave-triggered side effects)
 --   - on_open/on_close callbacks for caller-specific setup/cleanup
 --   - Auto-close on WinLeave/BufLeave
 
@@ -77,6 +80,13 @@ end
 ---   backdrop      boolean       Show a dimming backdrop (default false).
 ---   backdrop_hl   string        Backdrop highlight group (default "NormalFloat").
 ---   noautocmd     boolean       Pass noautocmd=true to nvim_open_win (default false).
+---   focus         boolean       Steal focus to the modal window (default true).
+---                 When false, the float opens without entering it — the
+---                 current buffer keeps focus, no BufLeave/WinLeave fires,
+---                 and keymaps are set on the current buffer instead of the
+---                 modal buffer. Useful when the caller's buffer has unsaved
+---                 changes and autowrite or other leave-triggered autocmds
+---                 must not fire.
 ---   focus_guard   boolean       Prevent focus from leaving the modal (default false).
 ---   buttons       table         Button bar config (optional). See below.
 ---   keymaps       table         { [key] = action_string } mappings (optional).
@@ -100,6 +110,12 @@ end
 function M.open(opts)
 	opts = opts or {}
 	local lines = vim.list_extend({}, opts.lines or {})
+	local focus = opts.focus ~= false -- default true
+
+	-- In non-focus mode, keymaps are set on the current buffer (saved here)
+	-- instead of the modal buffer, so the float never steals focus.
+	local orig_buf = focus and nil or vim.api.nvim_get_current_buf()
+	local orig_win = focus and nil or vim.api.nvim_get_current_win()
 
 	-- Compute width from content if not explicitly given.
 	local max_width = opts.max_width or 80
@@ -241,7 +257,7 @@ function M.open(opts)
 		win_config.title_pos = "center"
 	end
 
-	local win_id = vim.api.nvim_open_win(buf_id, true, win_config)
+	local win_id = vim.api.nvim_open_win(buf_id, focus, win_config)
 
 	-- Apply caller-specified window-local options.
 	if opts.win_options then
@@ -278,6 +294,7 @@ function M.open(opts)
 	local augroup = vim.api.nvim_create_augroup(augroup_name, { clear = true })
 	local closed = false
 	local orig_set_current_win = nil
+	local set_keys = {} -- keys set on orig_buf (non-focus mode) for cleanup
 
 	local ctx = {
 		win = win_id,
@@ -295,6 +312,14 @@ function M.open(opts)
 		if orig_set_current_win then
 			vim.api.nvim_set_current_win = orig_set_current_win
 			orig_set_current_win = nil
+		end
+
+		-- In non-focus mode, clean up keymaps set on the original buffer.
+		-- (In focus mode, keymaps are on the modal buffer which gets deleted.)
+		if not focus and orig_buf and vim.api.nvim_buf_is_valid(orig_buf) then
+			for _, key in ipairs(set_keys) do
+				pcall(vim.keymap.del, "n", key, { buffer = orig_buf })
+			end
 		end
 
 		pcall(vim.api.nvim_del_augroup_by_id, augroup)
@@ -324,7 +349,19 @@ function M.open(opts)
 	ctx.run_action = run_action
 
 	-- --- Keymaps ---
-	local km_opts = { buffer = buf_id, silent = true, nowait = true, noremap = true }
+	-- In non-focus mode, keymaps are set on the original buffer (which keeps
+	-- focus) instead of the modal buffer. In focus mode, they're set on the
+	-- modal buffer as before.
+	local km_target = focus and buf_id or orig_buf
+	local km_opts = { buffer = km_target, silent = true, nowait = true, noremap = true }
+
+	-- Helper: set a buffer-local keymap and track it for cleanup (non-focus).
+	local function set_key(key, fn, o)
+		vim.keymap.set("n", key, fn, o)
+		if not focus then
+			table.insert(set_keys, key)
+		end
+	end
 
 	-- Button navigation keymaps (only when buttons are present).
 	if buttons_config then
@@ -338,21 +375,21 @@ function M.open(opts)
 			update_button_hl()
 		end
 
-		vim.keymap.set("n", "<Tab>", function()
+		set_key("<Tab>", function()
 			cycle(1)
 		end, vim.tbl_extend("force", km_opts, { desc = "Next button" }))
-		vim.keymap.set("n", "<S-Tab>", function()
+		set_key("<S-Tab>", function()
 			cycle(-1)
 		end, vim.tbl_extend("force", km_opts, { desc = "Previous button" }))
-		vim.keymap.set("n", "<CR>", function()
+		set_key("<CR>", function()
 			run_action(buttons_config.items[selected].action)
 		end, vim.tbl_extend("force", km_opts, { desc = "Activate button" }))
 
 		-- Mouse click on buttons: dispatch by column position. Non-button
 		-- clicks fall through to normal cursor positioning.
-		vim.keymap.set("n", "<LeftMouse>", function()
+		set_key("<LeftMouse>", function()
 			local pos = vim.fn.getmousepos()
-			if pos.line == button_line_nr then
+			if pos.winid == win_id and pos.line == button_line_nr then
 				local col_click = pos.column
 				for i, p in ipairs(button_positions) do
 					if col_click > p.col0 and col_click <= p.end_col then
@@ -361,26 +398,49 @@ function M.open(opts)
 					end
 				end
 			end
-			vim.api.nvim_win_set_cursor(win_id, { pos.line, math.max(0, pos.column - 1) })
-		end, { buffer = buf_id, silent = true })
+			-- In focus mode, move cursor in the modal window.
+			-- In non-focus mode, let the click fall through to the original window.
+			if focus and pos.winid == win_id then
+				vim.api.nvim_win_set_cursor(win_id, { pos.line, math.max(0, pos.column - 1) })
+			end
+		end, { buffer = km_target, silent = true })
 	end
 
 	-- User-defined keymaps (each maps to an action string).
 	if opts.keymaps then
 		for key, action in pairs(opts.keymaps) do
-			vim.keymap.set("n", key, function()
+			set_key(key, function()
 				run_action(action)
 			end, km_opts)
 		end
 	end
 
-	-- Auto-close on WinLeave/BufLeave (e.g. mouse click outside, <C-w>w).
-	vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
-		group = augroup,
-		buffer = buf_id,
-		once = true,
-		callback = close,
-	})
+	-- Auto-close:
+	--   Focus mode: close when the modal buffer is left (WinLeave/BufLeave).
+	--   Non-focus mode: close when the original buffer is left (the float is
+	--   not focused, so its BufLeave never fires — we watch the original buf).
+	if focus then
+		vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
+			group = augroup,
+			buffer = buf_id,
+			once = true,
+			callback = close,
+		})
+	else
+		vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave" }, {
+			group = augroup,
+			buffer = orig_buf,
+			once = true,
+			callback = close,
+		})
+		-- Also close if the original window is closed.
+		vim.api.nvim_create_autocmd("WinClosed", {
+			group = augroup,
+			pattern = tostring(orig_win),
+			once = true,
+			callback = close,
+		})
+	end
 
 	-- --- Focus guard (optional) ---
 	-- Steals focus on open and prevents other code (e.g. mini.files' focus-loss
