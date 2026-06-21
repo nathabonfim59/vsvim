@@ -9,6 +9,24 @@
 
 local M = {}
 
+-- Close the current editor tab (like VS Code's Ctrl+W). `:bd`-style:
+-- wipe the buffer but keep the window, jumping to the previous listed
+-- buffer so the editor doesn't leave an empty window behind.
+local function close_current_buffer()
+	local cur = vim.api.nvim_get_current_buf()
+	-- Pick the previous listed buffer that isn't the current one.
+	local prev = nil
+	for _, b in ipairs(vim.api.nvim_list_bufs()) do
+		if b ~= cur and vim.bo[b].buflisted and vim.api.nvim_buf_is_loaded(b) then
+			prev = b -- last one wins -> closest listed buffer
+		end
+	end
+	if prev then
+		vim.api.nvim_set_current_buf(prev)
+	end
+	vim.api.nvim_buf_delete(cur, { force = false })
+end
+
 function M.apply()
 	-- VSCode text-editing shortcuts (no-modes experience).
 	-- Must run after plugins.lua so mini.pairs / mini.comment are set up.
@@ -26,23 +44,12 @@ function M.apply()
 	end, { desc = "[S]earch [W]ord" })
 
 	-- Tab/buffer management (VS Code-style tabline lives in lua/tabline.lua).
-	-- Close the current editor tab (like VS Code's Ctrl+W). `:bd`-style:
-	-- wipe the buffer but keep the window, jumping to the previous listed
-	-- buffer so the editor doesn't leave an empty window behind.
-	vim.keymap.set("n", "<leader>bd", function()
-		local cur = vim.api.nvim_get_current_buf()
-		-- Pick the previous listed buffer that isn't the current one.
-		local prev = nil
-		for _, b in ipairs(vim.api.nvim_list_bufs()) do
-			if b ~= cur and vim.bo[b].buflisted and vim.api.nvim_buf_is_loaded(b) then
-				prev = b -- last one wins -> closest listed buffer
-			end
-		end
-		if prev then
-			vim.api.nvim_set_current_buf(prev)
-		end
-		vim.api.nvim_buf_delete(cur, { force = false })
-	end, { desc = "[B]uffer [D]elete (close tab)" })
+	-- Ctrl+W closes the current editor tab, matching VS Code's shortcut.
+	-- This shadows Vim's <C-w> window-command prefix in normal mode; window
+	-- management is rarely needed in the single-window vsvim workflow. Insert
+	-- mode is left untouched so <C-w> (delete word) still works there.
+	vim.keymap.set("n", "<C-w>", close_current_buffer, { desc = "Close tab (VS Code Ctrl+W)" })
+	vim.keymap.set("n", "<leader>bd", close_current_buffer, { desc = "[B]uffer [D]elete (close tab)" })
 
 	-- Cycle editor tabs like VS Code's Ctrl+Tab / Ctrl+Shift+Tab.
 	vim.keymap.set("n", "<leader>bn", "<Cmd>bnext<CR>", { desc = "[B]uffer [N]ext tab" })
